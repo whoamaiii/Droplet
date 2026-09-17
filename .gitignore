@@ -1,0 +1,12 @@
+# macOS metadata
+.DS_Store
+
+# Swift and Xcode build products
+.build/
+DerivedData/
+*.app/
+
+# Local editor and tooling files
+.swiftpm/
+.vscode/
+.idea/
