@@ -1,469 +1,219 @@
-//
-//  Droplet — one-click menu-bar video downloader (yt-dlp front end).
-//  Click the droplet in the menu bar → press Download → the URL in your
-//  clipboard is saved as an MP4 into ~/Downloads. No dialogs, no approvals.
-//
-//  Swift + SwiftUI + AppKit. Single file, no external dependencies.
-//
-
+// Droplet: clipboard video downloads, with isolated process ownership.
 import Cocoa
 import Combine
 import SwiftUI
-
-// MARK: - Download manager
+import OSLog
 
 @MainActor
 final class DownloadManager: ObservableObject {
-
-    enum Phase: Equatable {
-        case idle
-        case downloading
-        case done
-        case failed(String)
-    }
-
+    enum Phase: Equatable { case idle, downloading, done, failed(String) }
     @Published var phase: Phase = .idle
-    @Published var progress: Double = 0
-    @Published var title: String = ""
+    @Published var progress = 0.0
+    @Published var title = ""
     @Published var clipboardURL: URL?
-    /// Shown in the bubble while a fallback attempt is running.
-    @Published var retryNote: String = ""
-    /// Status text for the "update download engine" action.
-    @Published var updateNote: String = ""
-    /// Bumps every time the bubble opens → the whole UI is re-created so the
-    /// droplet entrance animation replays.
+    @Published var retryNote = ""
+    @Published var stageNote = ""
+    @Published var updateNote = ""
+    @Published var isUpdating = false
+    @Published var isShuttingDown = false
     @Published var session = 0
+    private(set) var downloadGeneration = UUID()
+    let downloadsFolder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
+    private var request: DownloadRequest?
+    private var failedURL: URL?
+    private var activeCommand: ManagedCommand?
+    private var commands: [UUID: ManagedCommand] = [:] // includes cancelled/retiring attempts
+    private var firstError = ""
+    private var output = DownloadOutput()
+    private var updateGeneration = UUID()
+    private var shutdownCompletion: (() -> Void)?
 
-    let downloadsFolder = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Downloads")
-
-    private var task: Process?
-    private var lastErrorLine = ""
-
-    /// One download attempt: a note shown in the UI plus extra yt-dlp args.
-    private struct Attempt {
-        let note: String
-        let extra: [String]
+    static func readClipboardURL() -> URL? {
+        guard let raw = NSPasteboard.general.string(forType: .string),
+              let url = URL(string: raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              url.host != nil else { return nil }
+        return url
     }
-    private var attempts: [Attempt] = []
-    private var attemptIndex = 0
-    private var isCancelled = false
-    /// Error from the very first attempt — what the user is told at the end.
-    private var firstErrorLine = ""
-
-    /// A realistic browser UA — many hosts (and YouTube) return
-    /// 403 Forbidden to requests that look like a bare script.
-    private static let browserUserAgent =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
-        + "(KHTML, like Gecko) Version/18.0 Safari/605.1.15"
 
     func beginSession() {
         session += 1
         if phase != .downloading {
-            phase = .idle
-            progress = 0
-            title = ""
+            phase = .idle; progress = 0; title = ""; retryNote = ""; stageNote = ""
         }
         clipboardURL = Self.readClipboardURL()
+        // request.url is immutable and is never refreshed from this clipboard.
     }
+
+    func startDownload() { startDownload(url: clipboardURL ?? Self.readClipboardURL()) }
 
     func retryFromFailure() {
-        phase = .idle
-        progress = 0
+        guard case .failed = phase else { return }
+        startDownload(url: failedURL ?? clipboardURL ?? Self.readClipboardURL())
     }
 
-    static func readClipboardURL() -> URL? {
-        guard let raw = NSPasteboard.general.string(forType: .string) else { return nil }
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https",
-              url.host() != nil else { return nil }
-        return url
-    }
-
-    func startDownload() {
-        if phase == .downloading { return }
-
-        guard let url = clipboardURL ?? Self.readClipboardURL() else {
-            clipboardURL = nil
-            phase = .failed("No video link found in your clipboard.\nCopy a video URL first, then open Droplet again.")
+    private func startDownload(url: URL?) {
+        guard phase != .downloading, !isUpdating, !isShuttingDown else { return }
+        guard let url else {
+            clipboardURL = nil; failedURL = nil
+            phase = .failed("No video link found in your clipboard. Copy a video URL first.")
             return
         }
+        failedURL = url
+        guard let engine = EngineTools.find("yt-dlp", override: "DROPLET_YTDLP") else {
+            phase = .failed("yt-dlp was not found. Install it with Homebrew (brew install yt-dlp ffmpeg), or set DROPLET_YTDLP to its absolute executable path.")
+            return
+        }
+        guard let ffmpeg = EngineTools.find("ffmpeg", override: "DROPLET_FFMPEG") else {
+            phase = .failed("ffmpeg was not found. Install it with brew install ffmpeg, or set DROPLET_FFMPEG to its absolute executable path.")
+            return
+        }
+        do { try FileManager.default.createDirectory(at: downloadsFolder, withIntermediateDirectories: true) }
+        catch { phase = .failed("Couldn't open Downloads: \(error.localizedDescription)"); return }
         clipboardURL = url
-
-        isCancelled = false
-        firstErrorLine = ""
-        attempts = Self.makeAttempts(for: url)
-        runAttempt(0)
+        let newRequest = DownloadRequest(url: url, executable: engine, ffmpeg: ffmpeg,
+            attempts: DownloadPolicy.attempts(for: url, browsers: DownloadPolicy.installedCookieBrowsers()),
+            outputTemplate: downloadsFolder.path + "/%(title).160B [%(extractor_key)s-%(id)s].%(ext)s")
+        request = newRequest
+        downloadGeneration = newRequest.id
+        firstError = ""
+        runAttempt(0, request: newRequest)
     }
 
-    /// Builds the retry ladder. Attempt 1 is plain yt-dlp; the later attempts
-    /// automatically apply the workarounds that fix the overwhelming majority
-    /// of HTTP 403 / "forbidden" / bot-check / hotlink failures.
-    private static func makeAttempts(for url: URL) -> [Attempt] {
-        var ladder: [Attempt] = [Attempt(note: "", extra: [])]
-
-        let host = (url.host() ?? "").lowercased()
-        if host.contains("youtube") || host.contains("youtu.be") {
-            // alternate player clients dodge YouTube's "Sign in to confirm
-            // you're not a bot" 403 without needing any cookies
-            ladder.append(Attempt(
-                note: "Retrying with an alternate YouTube client…",
-                extra: ["--extractor-args",
-                        "youtube:player_client=default,web_safari,tv,ios"]))
-        }
-        // cookies from the user's own browser: fixes login-required and
-        // signed-URL 403s (Instagram, TikTok, private/unlisted, age-gated, …).
-        // Only browsers actually installed on this Mac are tried.
-        for browser in installedCookieBrowsers() {
-            ladder.append(Attempt(
-                note: "Retrying with \(browser.capitalized) cookies…",
-                extra: ["--cookies-from-browser", browser]))
-        }
-        return ladder
-    }
-
-    /// Browsers whose cookie stores exist on this Mac (skips pointless attempts
-    /// and keeps the final error message about the real problem).
-    private static func installedCookieBrowsers() -> [String] {
-        let home = NSHomeDirectory()
-        let candidates: [(String, String)] = [
-            ("safari", home + "/Library/Containers/com.apple.Safari/Data/Library/Cookies/Cookies.binarycookies"),
-            ("chrome", home + "/Library/Application Support/Google/Chrome"),
-            ("brave",  home + "/Library/Application Support/BraveSoftware/Brave-Browser"),
-            ("edge",   home + "/Library/Application Support/Microsoft Edge"),
-            ("firefox", home + "/Library/Application Support/Firefox/Profiles"),
-        ]
-        return candidates
-            .filter { FileManager.default.fileExists(atPath: $0.1) }
-            .map { $0.0 }
-    }
-
-    /// Runs attempt number `index` of the ladder. On failure it automatically
-    /// advances to the next workaround; only the last one reports an error.
-    private func runAttempt(_ index: Int) {
-        guard let url = clipboardURL, index < attempts.count else { return }
-        attemptIndex = index
-        let attempt = attempts[index]
-
-        phase = .downloading
-        progress = 0
-        lastErrorLine = ""
-        retryNote = attempt.note
-        if index == 0 { title = "" }
-        AppDelegate.debugLog("attempt \(index + 1)/\(attempts.count): \(attempt.note.isEmpty ? "base" : attempt.note)")
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/yt-dlp")
-        process.arguments = [
-            "--newline",
-            "--no-playlist",
-            "--no-warnings",
-            "--no-mtime",
-            "--ffmpeg-location", "/opt/homebrew/bin",
-            "--retries", "8",
-            "--fragment-retries", "8",
-            "--retry-sleep", "1",
-            // realistic browser headers — many hosts 403 script-looking requests
-            "--user-agent", Self.browserUserAgent,
-            "--referer", url.absoluteString,
-            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "--merge-output-format", "mp4",
-            "-o", downloadsFolder.path + "/%(title)s.%(ext)s",
-        ] + attempt.extra + [url.absoluteString]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let chunk = handle.availableData
-            if chunk.isEmpty {
-                handle.readabilityHandler = nil
-                return
-            }
-            let text = String(decoding: chunk, as: UTF8.self)
-
-            // Compiled once per output chunk (cheap) so nothing isolated
-            // is touched from this background closure.
-            let percentRegex = try! NSRegularExpression(pattern: #"\[download\]\s+(\d+(?:\.\d+)?)%"#)
-            let destRegex    = try! NSRegularExpression(pattern: #"\[download\] Destination: (.+)"#)
-            let fragRegex    = try! NSRegularExpression(pattern: #"\.f\d+\.\w+$"#)
-
-            func prettyTitle(_ path: String) -> String {
-                var file = (path as NSString).lastPathComponent
-                if let m = fragRegex.firstMatch(in: file, range: NSRange(file.startIndex..., in: file)) {
-                    file = (file as NSString).substring(to: m.range.location)
-                }
-                if let dot = file.lastIndex(of: ".") {
-                    file = String(file[..<dot])
-                }
-                return file
-            }
-
-            var percent: Double?
-            var name: String?
-            var errorLine: String?
-
-            for rawLine in text.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
-                let line = String(rawLine)
-                let range = NSRange(line.startIndex..., in: line)
-
-                if let match = percentRegex.firstMatch(in: line, range: range),
-                   let value = Double((line as NSString).substring(with: match.range(at: 1))) {
-                    percent = value
-                }
-                if let match = destRegex.firstMatch(in: line, range: range) {
-                    name = prettyTitle((line as NSString).substring(with: match.range(at: 1)))
-                }
-                if line.hasPrefix("ERROR:") {
-                    errorLine = line
-                }
-            }
-
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if let percent { self.progress = percent / 100.0 }
-                if let name { self.title = name }
-                if let errorLine { self.lastErrorLine = errorLine }
-            }
-        }
-
-        process.terminationHandler = { [weak self] finished in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.task = nil
-
-                if self.isCancelled {
-                    self.phase = .idle
-                    self.progress = 0
-                    self.retryNote = ""
-                    return
-                }
-
-                if finished.terminationStatus == 0 {
-                    self.retryNote = ""
+    private func runAttempt(_ index: Int, request current: DownloadRequest) {
+        guard !isShuttingDown, request?.id == current.id, index < current.attempts.count else { return }
+        let attempt = current.attempts[index]
+        phase = .downloading; progress = 0; title = ""
+        retryNote = attempt.note; stageNote = "Fetching video…"
+        output = DownloadOutput()
+        let command = ManagedCommand()
+        activeCommand = command // assign identity BEFORE spawning, including fast failures
+        run(command, executable: current.executable,
+            arguments: DownloadPolicy.arguments(for: current, attempt: attempt),
+            onLines: { [weak self, weak command] lines in
+                guard let self, let command, self.activeCommand === command,
+                      self.request?.id == current.id else { return }
+                for line in lines { self.output.consume(line) }
+                self.progress = self.output.progress
+                self.title = self.output.title
+                self.stageNote = self.output.stage
+            }, completion: { [weak self, weak command] result in
+                guard let self, let command, self.activeCommand === command,
+                      self.request?.id == current.id else { return }
+                self.activeCommand = nil
+                if result.cancelled { return }
+                if result.status == 0 {
+                    self.progress = 1; self.retryNote = ""; self.stageNote = ""
                     self.phase = .done
                     NSSound(named: "Tink")?.play()
                     return
                 }
-
-                if finished.terminationStatus == 15 {
-                    // cancelled by the user — go quietly back to idle
-                    self.phase = .idle
-                    self.progress = 0
-                    self.retryNote = ""
+                let error = result.lastError.isEmpty ? "yt-dlp exited with status \(result.status)." : result.lastError
+                if index == 0 { self.firstError = error }
+                // A codec mismatch or failure to execute won't improve with cookies.
+                let terminal = result.status == 127 || error.lowercased().contains("requested format is not available")
+                if !terminal && index + 1 < current.attempts.count {
+                    self.runAttempt(index + 1, request: current)
                     return
                 }
-
-                // failed → silently advance to the next workaround, if any
-                let next = self.attemptIndex + 1
-                if next < self.attempts.count {
-                    if self.attemptIndex == 0 { self.firstErrorLine = self.lastErrorLine }
-                    self.title = ""
-                    self.runAttempt(next)
-                    return
-                }
-
-                // report the ORIGINAL failure (not an incidental fallback error)
-                var message = self.firstErrorLine.isEmpty ? self.lastErrorLine : self.firstErrorLine
-                if message.hasPrefix("ERROR:") {
-                    message = String(message.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                }
-                if message.isEmpty {
-                    message = "yt-dlp exited with status \(finished.terminationStatus)."
-                }
-                if let hint = Self.hint(for: message) {
-                    message += "\n\n" + hint
-                }
-                self.retryNote = ""
+                var message = self.firstError.isEmpty ? error : self.firstError
+                if message.hasPrefix("ERROR:") { message = String(message.dropFirst(6)).trimmingCharacters(in: .whitespaces) }
+                if let hint = DownloadPolicy.hint(for: message) { message += "\n\n" + hint }
+                self.retryNote = ""; self.stageNote = ""
                 self.phase = .failed(message)
                 NSSound(named: "Basso")?.play()
+            })
+    }
+
+    /// Every command is retained until its group is stopped, output drained and
+    /// leader reaped, even after the UI immediately starts a new attempt.
+    private func run(_ command: ManagedCommand, executable: URL, arguments: [String],
+                     timeout: TimeInterval? = nil,
+                     onLines: @escaping ([String]) -> Void = { _ in },
+                     completion: @escaping (CommandResult) -> Void) {
+        commands[command.id] = command
+        command.start(executable: executable, arguments: arguments, environment: EngineTools.environment,
+                      timeout: timeout, onLines: onLines) { [weak self] result in
+            guard let self else { return }
+            // Keep a strong local reference through completion's identity check.
+            let retained = self.commands.removeValue(forKey: command.id)
+            withExtendedLifetime(retained) {
+                if !self.isShuttingDown { completion(result) }
             }
-        }
-
-        do {
-            try process.run()
-            task = process
-        } catch {
-            retryNote = ""
-            phase = .failed("Couldn't launch yt-dlp: \(error.localizedDescription)")
+            self.finishShutdownIfReady()
         }
     }
 
-    /// Turns cryptic yt-dlp failures into something actionable.
-    private static func hint(for message: String) -> String? {
-        let lower = message.lowercased()
-        if lower.contains("sign in to confirm") || lower.contains("bot") {
-            return "YouTube is asking for a human check. Press ↻ in the footer to update the engine, or sign in to YouTube in Safari and press Try Again."
-        }
-        if lower.contains("403") || lower.contains("forbidden") {
-            return "The site blocked the download. Press ↻ in the footer to update the download engine (fixes most of these), or open the page while signed in and copy the link fresh."
-        }
-        if lower.contains("private") || lower.contains("login") || lower.contains("members") {
-            return "This video needs a signed-in session. Sign in with your browser, keep that browser's cookies, then press Try Again."
-        }
-        if lower.contains("not available") || lower.contains("unavailable") || lower.contains("removed") {
-            return "The video may be region-locked or deleted."
-        }
-        return nil
-    }
-
-    private var killTimer: DispatchWorkItem?
-    private var updateTask: Process?
-
-    /// Updates the download engine (yt-dlp) in the background. YouTube and other
-    /// sites change constantly, and a stale engine is the #1 cause of
-    /// "HTTP Error 403: Forbidden" — so this is one click away.
-    func updateDownloader() {
-        guard updateTask == nil else { return }
-        updateNote = "Updating yt-dlp…"
-        AppDelegate.debugLog("update: brew upgrade yt-dlp")
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/brew")
-        process.arguments = ["upgrade", "yt-dlp"]
-        var env = ProcessInfo.processInfo.environment
-        env["PATH"] = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
-        env["HOMEBREW_NO_ENV_HINTS"] = "1"
-        process.environment = env
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        // drain the output so brew can never block on a full pipe
-        pipe.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
-        }
-
-        process.terminationHandler = { [weak self] finished in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.updateTask = nil
-                pipe.fileHandleForReading.readabilityHandler = nil
-                if finished.terminationStatus == 0 {
-                    let version = Self.ytDlpVersion()
-                    self.updateNote = version.isEmpty ? "yt-dlp updated ✓" : "yt-dlp \(version) ✓"
-                    AppDelegate.debugLog("update: done, version \(version)")
-                } else {
-                    self.updateNote = "Update failed — try: brew upgrade yt-dlp"
-                    AppDelegate.debugLog("update: failed status \(finished.terminationStatus)")
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
-                    if self?.updateTask == nil { self?.updateNote = "" }
-                }
-            }
-        }
-
-        do {
-            try process.run()
-            updateTask = process
-        } catch {
-            updateNote = "Couldn't run brew"
-            AppDelegate.debugLog("update: launch failed \(error)")
-        }
-    }
-
-    /// Installed yt-dlp version string ("" if unavailable).
-    static func ytDlpVersion() -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/yt-dlp")
-        process.arguments = ["--version"]
-        let out = Pipe()
-        process.standardOutput = out
-        process.standardError = Pipe()
-        guard (try? process.run()) != nil else { return "" }
-        let data = out.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return String(decoding: data, as: UTF8.self)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    /// Soft-cancel (Cancel button): SIGTERM now, SIGKILL fallback in 1s.
     func cancel() {
-        guard let process = task else { return }
-        task = nil
-        isCancelled = true
-        phase = .idle
-        progress = 0
-        retryNote = ""
-        let pid = process.processIdentifier
-        process.terminate()   // SIGTERM — yt-dlp cleans up its ffmpeg children
+        guard let command = activeCommand else { return }
+        // Invalidate first: queued output, completion and timers become harmless.
+        activeCommand = nil; request = nil; downloadGeneration = UUID()
+        command.cancel()
+        phase = .idle; progress = 0; retryNote = ""; stageNote = ""; title = ""
+    }
 
-        let timer = DispatchWorkItem {
-            if process.isRunning {
-                kill(pid, SIGKILL)
+    func updateDownloader() {
+        guard !isUpdating, !isShuttingDown, phase != .downloading else { return }
+        updateGeneration = UUID()
+        let generation = updateGeneration
+        guard let engine = EngineTools.find("yt-dlp", override: "DROPLET_YTDLP") else {
+            updateNote = "yt-dlp not found. Install using brew install yt-dlp ffmpeg."
+            return
+        }
+        guard let brew = EngineTools.find("brew", override: "DROPLET_BREW") else {
+            updateNote = "No Homebrew found. Update yt-dlp with its original pip, pipx, or standalone installer."
+            return
+        }
+        isUpdating = true
+        updateNote = "Checking engine installation…"
+        // Query the actual formula prefix instead of assuming that a PATH match
+        // or the presence of brew means this yt-dlp is Homebrew-managed.
+        run(ManagedCommand(), executable: brew, arguments: ["--prefix", "yt-dlp"], timeout: 30) { [weak self] result in
+            guard let self, self.updateGeneration == generation else { return }
+            guard result.status == 0,
+                  let prefix = result.tail.last(where: { $0.hasPrefix("/") }),
+                  EngineTools.isInside(engine, prefix: URL(fileURLWithPath: prefix)) else {
+                self.isUpdating = false
+                self.updateNote = "This yt-dlp is not managed by this Homebrew. Update it with its original installer (pip/pipx/standalone)."
+                return
+            }
+            self.updateNote = "Updating yt-dlp…"
+            self.run(ManagedCommand(), executable: brew, arguments: ["upgrade", "yt-dlp"], timeout: 600) { [weak self] result in
+                guard let self, self.updateGeneration == generation else { return }
+                guard result.status == 0 else {
+                    self.isUpdating = false
+                    self.updateNote = "Update failed: " + (result.lastError.isEmpty ? (result.tail.last ?? "brew exited with status \(result.status)") : result.lastError)
+                    return
+                }
+                self.run(ManagedCommand(), executable: engine, arguments: ["--version"], timeout: 15) { [weak self] result in
+                    guard let self, self.updateGeneration == generation else { return }
+                    self.isUpdating = false
+                    let version = result.status == 0 ? result.tail.last ?? "" : ""
+                    self.updateNote = version.isEmpty ? "yt-dlp updated; version check unavailable." : "yt-dlp \(version) ✓"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+                        guard let self, !self.isShuttingDown, self.updateGeneration == generation,
+                              !self.isUpdating else { return }
+                        self.updateNote = ""
+                    }
+                }
             }
         }
-        killTimer = timer
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 1.0, execute: timer)
     }
 
-    /// Called when the user quits: guaranteed total shutdown.
-    /// Kills any running download by polling the process directly — no
-    /// waitUntilExit (its exit callback needs the main thread, which would
-    /// deadlock the quit path) — so nothing can hang the shutdown.
-    func shutdownForQuit() {
-        killTimer?.cancel()
-        killTimer = nil
-
-        updateTask?.terminate()   // stop any engine update too
-        updateTask = nil
-
-        guard let process = task else { return }
-        task = nil
-        isCancelled = true
-        phase = .idle
-        progress = 0
-        retryNote = ""
-
-        // also stop an in-flight download-engine update
-        updateTask?.terminate()
-        updateTask = nil
-        updateNote = ""
-
-        let pid = process.processIdentifier
-        process.terminate()   // SIGTERM — yt-dlp cleans up its ffmpeg children
-
-        // wait up to 0.5s for a graceful exit...
-        let deadline = Date().addingTimeInterval(0.5)
-        while Date() < deadline {
-            if kill(pid, 0) != 0 { break }   // process is gone
-            Thread.sleep(forTimeInterval: 0.02)
-        }
-        // ...then hard-kill whatever is left (harmless if already a zombie)
-        if kill(pid, 0) == 0 {
-            kill(pid, SIGKILL)
-        }
+    func shutdownForQuit(completion: @escaping () -> Void) {
+        guard !isShuttingDown else { return }
+        isShuttingDown = true
+        shutdownCompletion = completion
+        activeCommand = nil; request = nil; downloadGeneration = UUID(); updateGeneration = UUID()
+        phase = .idle; progress = 0; retryNote = ""; stageNote = ""; updateNote = ""; isUpdating = false
+        for command in commands.values { command.cancel() }
+        finishShutdownIfReady()
     }
 
-    /// Belt-and-suspenders: sweep the whole system for any yt-dlp / ffmpeg
-    /// processes (including orphans from earlier runs) so quitting really
-    /// leaves nothing running in the background.
-    func sweepBackgroundProcesses() {
-        let pkillPath = "/usr/bin/pkill"
-        let patterns = ["yt-dlp", "ffmpeg"]
-
-        // polite SIGTERM pass
-        for pattern in patterns {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: pkillPath)
-            p.arguments = ["-TERM", "-f", pattern]
-            try? p.run()
-            p.waitUntilExit()
-        }
-
-        // brief grace period, then force-kill pass
-        Thread.sleep(forTimeInterval: 0.3)
-        for pattern in patterns {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: pkillPath)
-            p.arguments = ["-KILL", "-f", pattern]
-            try? p.run()
-            p.waitUntilExit()
-        }
+    private func finishShutdownIfReady() {
+        guard isShuttingDown, commands.isEmpty, let completion = shutdownCompletion else { return }
+        shutdownCompletion = nil
+        DispatchQueue.main.async(execute: completion)
     }
 }
 
@@ -577,7 +327,6 @@ struct MainView: View {
     @ObservedObject var manager: DownloadManager
     var onOpenDownloads: () -> Void
     var onQuit: () -> Void
-    var onClose: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -608,12 +357,6 @@ struct MainView: View {
         }
         .frame(width: 320, height: 420)
         .background(VisualEffectView())
-        .onChange(of: manager.phase) { _, newPhase in
-            if newPhase == .done {
-                // seamless: success → auto-close the bubble
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.9) { onClose() }
-            }
-        }
         .id(manager.session)   // replays the droplet animation every time
     }
 
@@ -681,13 +424,13 @@ struct MainView: View {
                 .shadow(color: .blue.opacity(0.35), radius: 8, y: 3)
             }
             .buttonStyle(PressableButtonStyle())
+            .disabled(manager.isUpdating || manager.isShuttingDown)
 
-            // Explicit full-quit: closes the app AND kills every background
-            // yt-dlp/ffmpeg process on the system.
+            // Quit cancels only processes owned by this Droplet instance.
             Button {
                 onQuit()
             } label: {
-                Label("Quit Droplet — stop everything", systemImage: "power")
+                Label("Quit Droplet", systemImage: "power")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 5)
@@ -723,7 +466,7 @@ struct MainView: View {
             .animation(.linear(duration: 0.25), value: manager.progress)
 
             HStack(spacing: 10) {
-                Text("\(Int(manager.progress * 100))%")
+                Text("≈\(Int(manager.progress * 100))%")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .monospacedDigit()
                 Spacer()
@@ -736,6 +479,10 @@ struct MainView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            Text(manager.stageNote)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
 
             if !manager.retryNote.isEmpty {
                 Text(manager.retryNote)
@@ -792,13 +539,15 @@ struct MainView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 30))
                 .foregroundStyle(.yellow.gradient)
+            ScrollView {
             Text(message)
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .lineLimit(9)
                 .padding(.horizontal, 2)
+            }
+            .frame(maxHeight: 150)
             Button {
                 withAnimation { manager.retryFromFailure() }
             } label: {
@@ -830,6 +579,7 @@ struct MainView: View {
             }
             .buttonStyle(.plain)
             .help("Open Downloads folder")
+            .accessibilityLabel("Open Downloads folder")
 
             Spacer()
 
@@ -838,8 +588,10 @@ struct MainView: View {
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .help(manager.updateNote)
+                    .accessibilityLabel(manager.updateNote)
             } else {
-                Text("yt-dlp · MP4 · 1000+ sites")
+                Text("yt-dlp · H.264 + AAC · MP4")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.quaternary)
             }
@@ -854,6 +606,8 @@ struct MainView: View {
             }
             .buttonStyle(.plain)
             .help("Update download engine (yt-dlp)")
+            .accessibilityLabel("Update download engine")
+            .disabled(manager.isUpdating || manager.phase == .downloading || manager.isShuttingDown)
 
             Button {
                 onQuit()
@@ -863,6 +617,7 @@ struct MainView: View {
             }
             .buttonStyle(.plain)
             .help("Quit Droplet")
+            .accessibilityLabel("Quit Droplet")
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 20)
@@ -879,97 +634,119 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let manager = DownloadManager()
     private var phaseCancellable: AnyCancellable?
     private var lastCloseAt = Date.distantPast
+    private var instanceLock: Int32 = -1
+    private var autoClose: DispatchWorkItem?
+    private var iconReset: DispatchWorkItem?
+    private var signalSources: [DispatchSourceSignal] = []
+    private var quitting = false
+    private var readyToQuit = false
+    private static let logger = Logger(subsystem: "com.quentinthiessen.droplet", category: "lifecycle")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // single-instance guard (first-one-wins): if another Droplet is already
-        // in the menu bar, this newborn exits quietly. Never kill the other
-        // instance — killing launchd's KeepAlive instance triggers a respawn
-        // war (the other instance would kill us back mid-quit).
-        if anotherDropletInstanceIsRunning() {
+        do {
+            let directory = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support/Droplet")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            instanceLock = droplet_lock(directory.appendingPathComponent("instance.lock").path)
+        } catch {
+            showStartupError(error.localizedDescription)
+            return
+        }
+        if instanceLock == -1 {
+            let existing = NSRunningApplication.runningApplications(withBundleIdentifier: "com.quentinthiessen.droplet")
+                .first { $0.processIdentifier != getpid() }
+            existing?.activate(options: [])
+            // SuccessfulExit=false in the versioned agent means no respawn loop.
+            // flock is atomic: two simultaneous launches cannot both lose.
             exit(0)
         }
-
+        guard instanceLock >= 0 else {
+            showStartupError("Couldn't acquire the instance lock: \(String(cString: strerror(errno)))")
+            return
+        }
+        installTerminationSignals()
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
             button.image = NSImage(systemSymbolName: "drop.fill", accessibilityDescription: "Droplet")
-            button.action = #selector(togglePopover(_:))
-            button.target = self
+            button.action = #selector(togglePopover(_:)); button.target = self
+            button.setAccessibilityLabel("Droplet: ready")
         }
         statusItem = item
-
-        let root = MainView(
-            manager: manager,
-            onOpenDownloads: { [weak self] in self?.openDownloads() },
-            onQuit: { [weak self] in self?.quitApp() },
-            onClose: { [weak self] in self?.popover.performClose(nil) }
-        )
+        let root = MainView(manager: manager,
+                            onOpenDownloads: { [weak self] in self?.openDownloads() },
+                            onQuit: { [weak self] in self?.quitApp() })
         let host = NSHostingController(rootView: root)
-        host.sizingOptions = []          // fixed bubble size, no jumping
+        host.sizingOptions = []
         popover.contentViewController = host
         popover.contentSize = NSSize(width: 320, height: 420)
-        popover.behavior = .transient    // click anywhere else to dismiss
-        popover.animates = true
-        popover.delegate = self
-
-        phaseCancellable = manager.$phase
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] phase in self?.updateStatusIcon(for: phase) }
-
-        // Hidden self-test for the engine updater: --smoke-update
-        if CommandLine.arguments.contains("--smoke-update") {
-            manager.updateDownloader()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
-                if let note = self?.manager.updateNote { Self.debugLog("update note: '\(note)'") }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in
-                if let note = self?.manager.updateNote { Self.debugLog("note after clear: '\(note)'") }
-                self?.quitApp()
-            }
-        }
-
-        // Hidden self-test: launch with "--smoke-test" to verify the quit
-        // path kills a live download completely (used by build verification).
-        // Optional: --smoke-url=<url> to override, --smoke-quit=<seconds>.
-        if CommandLine.arguments.contains("--smoke-test") {
-            let urlArg = CommandLine.arguments
-                .first { $0.hasPrefix("--smoke-url=") }?
-                .replacingOccurrences(of: "--smoke-url=", with: "")
-            manager.clipboardURL = URL(string: urlArg ?? "https://www.youtube.com/watch?v=jNQXAC9IVRw")
-            manager.startDownload()
-
-            let quitAfter = CommandLine.arguments
-                .first { $0.hasPrefix("--smoke-quit=") }
-                .map { $0.replacingOccurrences(of: "--smoke-quit=", with: "") }
-                .flatMap { Double($0) } ?? 2.5
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + quitAfter) { [weak self] in
-                if let phase = self?.manager.phase { Self.debugLog("final phase: \(phase)") }
-                self?.quitApp()
-            }
-        }
+        popover.behavior = .transient; popover.animates = true; popover.delegate = self
+        phaseCancellable = manager.$phase.receive(on: DispatchQueue.main)
+            .sink { [weak self] phase in self?.phaseDidChange(phase) }
+        publishReadiness()
     }
 
-    /// Debug helper — prints to stdout only when DROPLET_DEBUG=1 is set.
+    private func publishReadiness() {
+        let path = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Droplet/running.plist")
+        let state: [String: Any] = ["pid": Int(getpid()),
+            "build": Bundle.main.object(forInfoDictionaryKey: "DropletBuildID") as? String ?? "development"]
+        do {
+            let data = try PropertyListSerialization.data(fromPropertyList: state, format: .xml, options: 0)
+            try data.write(to: path, options: .atomic)
+        } catch { Self.debugLog("Could not write readiness marker: \(error.localizedDescription)") }
+    }
+
+    private func showStartupError(_ detail: String) {
+        let alert = NSAlert()
+        alert.messageText = "Droplet couldn't start"
+        alert.informativeText = detail
+        alert.runModal()
+        // A configuration failure must not create an automatic retry storm.
+        exit(0)
+    }
+
     static func debugLog(_ message: String) {
         guard ProcessInfo.processInfo.environment["DROPLET_DEBUG"] == "1" else { return }
-        print("[droplet] \(message)")
-        fflush(stdout)
+        logger.debug("\(message, privacy: .private)")
     }
 
-    private func updateStatusIcon(for phase: DownloadManager.Phase) {
-        guard let button = statusItem?.button else { return }
+    private func phaseDidChange(_ phase: DownloadManager.Phase) {
+        autoClose?.cancel(); autoClose = nil
+        iconReset?.cancel(); iconReset = nil
+        guard let button = statusItem?.button, !quitting else { return }
         switch phase {
         case .downloading:
-            button.image = NSImage(systemSymbolName: "drop.circle.fill", accessibilityDescription: nil)
-            button.contentTintColor = NSColor.controlAccentColor
+            button.image = NSImage(systemSymbolName: "drop.circle.fill", accessibilityDescription: "Droplet: downloading")
+            button.setAccessibilityLabel("Droplet: downloading")
+            button.contentTintColor = .controlAccentColor
         case .done:
-            button.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: nil)
-            button.contentTintColor = NSColor.systemGreen
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [weak self] in
-                guard let self, case .done = self.manager.phase else { return }
+            button.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: "Droplet: download complete")
+            button.setAccessibilityLabel("Droplet: download complete")
+            button.contentTintColor = .systemGreen
+            let generation = manager.downloadGeneration
+            let session = manager.session
+            if popover.isShown {
+                let close = DispatchWorkItem { [weak self] in
+                    guard let self, !self.quitting, self.popover.isShown,
+                          self.manager.phase == .done, self.manager.session == session,
+                          self.manager.downloadGeneration == generation else { return }
+                    self.popover.performClose(nil)
+                }
+                autoClose = close
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.9, execute: close)
+            }
+            let reset = DispatchWorkItem { [weak self] in
+                guard let self, !self.quitting, self.manager.phase == .done,
+                      self.manager.downloadGeneration == generation else { return }
                 self.setBaseIcon()
             }
-        default:
+            iconReset = reset
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.4, execute: reset)
+        case .failed:
+            button.image = NSImage(systemSymbolName: "exclamationmark.circle", accessibilityDescription: "Droplet: download failed")
+            button.setAccessibilityLabel("Droplet: download failed")
+            button.contentTintColor = .systemOrange
+        case .idle:
             setBaseIcon()
         }
     }
@@ -977,14 +754,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func setBaseIcon() {
         guard let button = statusItem?.button else { return }
         button.image = NSImage(systemSymbolName: "drop.fill", accessibilityDescription: "Droplet")
+        button.setAccessibilityLabel("Droplet: ready")
         button.contentTintColor = nil
     }
 
     @objc private func togglePopover(_ sender: Any?) {
-        guard let button = statusItem?.button else { return }
-        if popover.isShown {
-            popover.performClose(sender)
-        } else if Date().timeIntervalSince(lastCloseAt) > 0.3 {
+        guard !quitting, let button = statusItem?.button else { return }
+        autoClose?.cancel(); autoClose = nil
+        if popover.isShown { popover.performClose(sender) }
+        else if Date().timeIntervalSince(lastCloseAt) > 0.3 {
             manager.beginSession()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
@@ -992,84 +770,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         lastCloseAt = Date()
-        // if a download is running it just continues in the background —
-        // the menu-bar icon stays switched to the "active" droplet
+        autoClose?.cancel(); autoClose = nil
     }
 
-    private func openDownloads() {
-        NSWorkspace.shared.open(manager.downloadsFolder)
-    }
+    private func openDownloads() { NSWorkspace.shared.open(manager.downloadsFolder) }
+    private func quitApp() { NSApplication.shared.terminate(nil) }
 
-    // MARK: quitting — full shutdown, no background leftovers
-
-    /// There is a launchd LaunchAgent (~/Library/LaunchAgents/com.quentinthiessen.droplet.plist)
-    /// with KeepAlive=true that restarts this app ~2s after it exits.
-    /// Booting the job out tells launchd to stand down — quitting then REALLY quits.
-    /// (The agent reloads at next login, so autostart still works after reboot.)
-    private func bootOutKeepAliveAgent() {
-        let uid = getuid()
-        let commands: [[String]] = [
-            ["bootout", "gui/\(uid)/com.quentinthiessen.droplet"],
-            ["remove", "com.quentinthiessen.droplet"],
-            ["unload", NSHomeDirectory() + "/Library/LaunchAgents/com.quentinthiessen.droplet.plist"],
-        ]
-        for args in commands {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-            p.arguments = args
-            p.standardOutput = FileHandle.nullDevice
-            p.standardError = FileHandle.nullDevice
-            try? p.run()
-            p.waitUntilExit()
+    private func installTerminationSignals() {
+        // launchctl bootout / rebuild SIGTERM follows the same async cleanup as
+        // the Quit button. Spawned children get their default signal handlers.
+        for number in [SIGTERM, SIGINT, SIGHUP] {
+            signal(number, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
+            source.setEventHandler { [weak self] in self?.quitApp() }
+            source.resume()
+            signalSources.append(source)
         }
-    }
-
-    /// True if another running app has our bundle id.
-    private func anotherDropletInstanceIsRunning() -> Bool {
-        let myPID = getpid()
-        return NSWorkspace.shared.runningApplications.contains {
-            $0.bundleIdentifier == Bundle.main.bundleIdentifier
-                && $0.processIdentifier != myPID
-        }
-    }
-
-    /// Force-terminate every other running Droplet instance so no duplicate
-    /// menu-bar droplets survive. Only used in the quit path.
-    private func terminateOtherDropletInstances() {
-        let myPID = getpid()
-        for app in NSWorkspace.shared.runningApplications
-        where app.bundleIdentifier == Bundle.main.bundleIdentifier
-           && app.processIdentifier != myPID {
-            app.forceTerminate()
-        }
-    }
-
-    private func quitApp() {
-        popover.performClose(nil)
-        manager.shutdownForQuit()             // kill our own running download
-        manager.sweepBackgroundProcesses()    // kill ANY leftover yt-dlp/ffmpeg
-        bootOutKeepAliveAgent()               // tell launchd to stand down (may
-                                              // SIGTERM us if launchd owns us —
-                                              // cleanup is already done by then)
-        terminateOtherDropletInstances()      // no duplicate icons either
-        fflush(stdout)
-        exit(0)                               // unconditional: app can never survive
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // any other quit path (logout, etc.) runs the same full shutdown
-        quitApp()
-        return .terminateNow
+        if readyToQuit { return .terminateNow }
+        if quitting { return .terminateLater }
+        quitting = true
+        autoClose?.cancel(); iconReset?.cancel()
+        popover.performClose(nil)
+        manager.shutdownForQuit { [weak self] in
+            guard let self else { return }
+            self.readyToQuit = true
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
+    // The OS closes the lock descriptor at exit. Do not release it early while
+    // a terminating instance could still own a menu item or child processes.
+}
+
+#if !DROPLET_TESTING
+@main
+struct DropletApplication {
+    @MainActor static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.setActivationPolicy(.accessory)
+        withExtendedLifetime(delegate) { app.run() }
     }
 }
 
-@MainActor
-private func runApp() {
-    let app = NSApplication.shared
-    let delegate = AppDelegate()
-    app.delegate = delegate
-    app.setActivationPolicy(.accessory)   // menu-bar-only: no Dock icon
-    app.run()
-}
-
-await runApp()
+#endif
