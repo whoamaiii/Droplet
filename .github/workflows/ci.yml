@@ -1,0 +1,23 @@
+name: macOS build and regression tests
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Runtime and manager regression tests (no network downloads)
+        run: bash Tests/run.sh
+      - name: Build, sign and verify without installing or launching
+        run: bash build.sh --check
+      - name: Typecheck both Mac architectures
+        run: |
+          for arch in arm64 x86_64; do
+            xcrun swiftc -swift-version 5 -warnings-as-errors -parse-as-library -typecheck \
+              -target "$arch-apple-macos14.0" -import-objc-header ProcessSupport.h \
+              main.swift DownloadCore.swift ProcessRuntime.swift
+          done
