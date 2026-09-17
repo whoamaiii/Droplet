@@ -100,7 +100,25 @@ struct CoreTests {
         let (cancelled, _) = command("trap '' TERM; sleep 30 & wait", cancelAfter: 0.15)
         expect(cancelled.cancelled, "cancellation retained")
         expect(ProcessInfo.processInfo.systemUptime - started < 4, "SIGKILL escalation completes")
-        passed("TERM-resistant child group cancellation and escalation")
+        // A production restart must not spawn until the retired attempt has
+        // closed its output and released its process group.
+        let retired = ManagedCommand(), replacement = ManagedCommand()
+        let handoff = DispatchSemaphore(value: 0)
+        let callbacks = DispatchQueue(label: "test.serial-handoff")
+        var events: [String] = []
+        retired.start(executable: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", "trap '' TERM; sleep 30 & wait"],
+            environment: EngineTools.environment, callbackQueue: callbacks,
+            onLines: { _ in }, onCompletion: { _ in events.append("retired"); handoff.signal() })
+        replacement.start(executable: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", "echo replacement"],
+            environment: EngineTools.environment, callbackQueue: callbacks,
+            onLines: { events += $0 }, onCompletion: { _ in handoff.signal() })
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { retired.cancel() }
+        expect(handoff.wait(timeout: .now() + 4) == .success, "retired command completes")
+        expect(handoff.wait(timeout: .now() + 4) == .success, "replacement completes")
+        expect(events == ["retired", "replacement"], "replacement waits for full retirement")
+        passed("TERM-resistant cancellation, escalation and serialized replacement")
 
         let (timed, _) = command("sleep 30", timeout: 0.15)
         expect(timed.status == 124 && timed.lastError.contains("timed out"), "bounded timeout")
@@ -114,7 +132,8 @@ struct CoreTests {
         let sentinel = ManagedCommand()
         let sentinelDone = DispatchSemaphore(value: 0)
         sentinel.start(executable: URL(fileURLWithPath: "/bin/sh"), arguments: ["-c", "sleep 30"],
-            environment: EngineTools.environment, callbackQueue: .global(), onLines: { _ in },
+            environment: EngineTools.environment, callbackQueue: .global(),
+            executionQueue: .global(qos: .utility), onLines: { _ in },
             onCompletion: { _ in sentinelDone.signal() })
         _ = command("sleep 30", cancelAfter: 0.1)
         expect(sentinelDone.wait(timeout: .now() + 0.2) == .timedOut, "unrelated group survives cancellation")

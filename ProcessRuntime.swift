@@ -52,6 +52,10 @@ final class ManagedCommand: @unchecked Sendable {
     private var cancelled = false
     private var started = false
     private static let spawnLock = NSLock()
+    // Default application work is serialized through COMPLETE cleanup. A queued
+    // restart can update the UI immediately but cannot race an old .part writer
+    // or replace an engine that a retiring download is still executing.
+    private static let applicationWorker = DispatchQueue(label: "droplet.commands", qos: .utility)
 
     func cancel() {
         lock.lock(); cancelled = true; lock.unlock()
@@ -64,13 +68,14 @@ final class ManagedCommand: @unchecked Sendable {
 
     func start(executable: URL, arguments: [String], environment: [String: String],
                timeout: TimeInterval? = nil, callbackQueue: DispatchQueue = .main,
+               executionQueue: DispatchQueue? = nil,
                onLines: @escaping ([String]) -> Void,
                onCompletion: @escaping (CommandResult) -> Void) {
         lock.lock()
         precondition(!started, "A ManagedCommand can only be started once")
         started = true
         lock.unlock()
-        DispatchQueue.global(qos: .utility).async { [self] in
+        (executionQueue ?? Self.applicationWorker).async { [self] in
             let result = execute(executable: executable, arguments: arguments,
                                  environment: environment, timeout: timeout) { lines in
                 callbackQueue.async { onLines(lines) }
