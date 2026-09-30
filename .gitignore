@@ -10,3 +10,10 @@ DerivedData/
 .swiftpm/
 .vscode/
 .idea/
+
+# Local Python distribution checks
+__pycache__/
+*.pyc
+
+# Local agent session cache
+.omo/

@@ -1,0 +1,146 @@
+{
+  "project": "https://linear.app/qappp/project/droplet-fra-prototype-til-betalt-mac-app-31ed7e727670",
+  "projectId": "6b4e201a-3bc5-4d99-8880-3f3ec2dabdff",
+  "issues": {
+    "P1": {
+      "id": "WHO-216",
+      "url": "https://linear.app/qappp/issue/WHO-216/fastsett-v1-tre-gratis-filer-usdollar499-og-tydelige-lisensvilkar"
+    },
+    "P2": {
+      "id": "WHO-217",
+      "url": "https://linear.app/qappp/issue/WHO-217/avklar-tillatt-bruk-og-fa-betalingsleverandoren-til-a-godta-produktet"
+    },
+    "P3": {
+      "id": "WHO-218",
+      "url": "https://linear.app/qappp/issue/WHO-218/kartlegg-lisenser-og-lovlig-redistribusjon-av-hele-nedlastingsmotoren"
+    },
+    "P4": {
+      "id": "WHO-219",
+      "url": "https://linear.app/qappp/issue/WHO-219/klargjor-apple-developer-konto-og-developer-id-for-distribusjon"
+    },
+    "P5": {
+      "id": "WHO-220",
+      "url": "https://linear.app/qappp/issue/WHO-220/avklar-droplet-navn-domene-og-stabil-appidentitet"
+    },
+    "B1": {
+      "id": "WHO-221",
+      "url": "https://linear.app/qappp/issue/WHO-221/bevar-lokale-rettinger-og-etabler-en-testbar-bygggrunnmur"
+    },
+    "B2": {
+      "id": "WHO-222",
+      "url": "https://linear.app/qappp/issue/WHO-222/pakk-en-komplett-motor-som-virker-uten-homebrew"
+    },
+    "B3": {
+      "id": "WHO-223",
+      "url": "https://linear.app/qappp/issue/WHO-223/rett-parsing-av-oppdelte-prosessmeldinger-og-vis-reell-fremdrift"
+    },
+    "B4": {
+      "id": "WHO-224",
+      "url": "https://linear.app/qappp/issue/WHO-224/verifiser-ferdig-fil-og-unnga-filnavnkollisjoner-og-falsk-suksess"
+    },
+    "B5": {
+      "id": "WHO-225",
+      "url": "https://linear.app/qappp/issue/WHO-225/gjor-bruk-av-nettleserinnlogging-eksplisitt-og-valgfri"
+    },
+    "B6": {
+      "id": "WHO-226",
+      "url": "https://linear.app/qappp/issue/WHO-226/isoler-yt-dlp-konfigurasjon-og-rett-retry-timeout-og-url-logikk"
+    },
+    "B7": {
+      "id": "WHO-227",
+      "url": "https://linear.app/qappp/issue/WHO-227/bevis-at-avbryt-avslutt-og-omstart-rydder-bare-droplets-arbeid"
+    },
+    "B8": {
+      "id": "WHO-228",
+      "url": "https://linear.app/qappp/issue/WHO-228/gjor-bygge-og-installasjonsflyten-transaksjonell-ved-feil"
+    },
+    "B9": {
+      "id": "WHO-229",
+      "url": "https://linear.app/qappp/issue/WHO-229/fullfor-den-lille-kundeopplevelsen-uten-a-miste-drapedesignet"
+    },
+    "C0": {
+      "id": "WHO-230",
+      "url": "https://linear.app/qappp/issue/WHO-230/opprett-og-verifiser-et-engangskjop-med-lisens-i-testbutikken"
+    },
+    "C1": {
+      "id": "WHO-231",
+      "url": "https://linear.app/qappp/issue/WHO-231/implementer-tre-gratis-vellykkede-nedlastinger-med-krasjsikker-kvote"
+    },
+    "C2": {
+      "id": "WHO-232",
+      "url": "https://linear.app/qappp/issue/WHO-232/implementer-riktig-produktbundet-lisensaktivering-og-deaktivering"
+    },
+    "C3": {
+      "id": "WHO-233",
+      "url": "https://linear.app/qappp/issue/WHO-233/lagre-lisens-trygt-og-handter-frakobling-og-leverandorfeil"
+    },
+    "C4": {
+      "id": "WHO-234",
+      "url": "https://linear.app/qappp/issue/WHO-234/lag-proveindikator-kjopsknapp-og-enkel-lisensaktivering"
+    },
+    "C5": {
+      "id": "WHO-235",
+      "url": "https://linear.app/qappp/issue/WHO-235/definer-og-test-refusjon-tapt-nokkel-og-bytte-av-mac"
+    },
+    "C6": {
+      "id": "WHO-236",
+      "url": "https://linear.app/qappp/issue/WHO-236/bevis-hele-prove-og-lisensmatrisen-med-automatiserte-tester"
+    },
+    "D1": {
+      "id": "WHO-237",
+      "url": "https://linear.app/qappp/issue/WHO-237/bygg-signert-og-notarized-app-dmg-og-verifiserbar-release-pakke"
+    },
+    "D2": {
+      "id": "WHO-238",
+      "url": "https://linear.app/qappp/issue/WHO-238/erstatt-brew-oppdatering-med-sikre-oppdateringer-av-hele-appen"
+    },
+    "D3": {
+      "id": "WHO-239",
+      "url": "https://linear.app/qappp/issue/WHO-239/bytt-privat-keepalive-oppsett-til-normal-valgfri-start-ved-innlogging"
+    },
+    "E1": {
+      "id": "WHO-240",
+      "url": "https://linear.app/qappp/issue/WHO-240/avklar-selgeransvar-skatt-personvern-og-forbrukervilkar"
+    },
+    "E2": {
+      "id": "WHO-241",
+      "url": "https://linear.app/qappp/issue/WHO-241/lag-salgsside-med-gratisprove-direktekjop-og-aerlige-produktlofter"
+    },
+    "E3": {
+      "id": "WHO-242",
+      "url": "https://linear.app/qappp/issue/WHO-242/lag-kundestotte-trygg-diagnostikk-og-oppdatert-dokumentasjon"
+    },
+    "E4": {
+      "id": "WHO-243",
+      "url": "https://linear.app/qappp/issue/WHO-243/budsjetter-vedlikehold-og-planlegg-raske-motor-og"
+    },
+    "Q1": {
+      "id": "WHO-244",
+      "url": "https://linear.app/qappp/issue/WHO-244/test-signert-kundeinstallasjon-pa-ren-mac-uten-utviklerverktoy"
+    },
+    "Q2": {
+      "id": "WHO-245",
+      "url": "https://linear.app/qappp/issue/WHO-245/verifiser-stottede-kilder-og-mediefiler-med-tillatt-testmateriale"
+    },
+    "Q3": {
+      "id": "WHO-246",
+      "url": "https://linear.app/qappp/issue/WHO-246/gjennomfor-liten-ekstern-beta-og-rett-funn-for-salg"
+    },
+    "Q4": {
+      "id": "WHO-247",
+      "url": "https://linear.app/qappp/issue/WHO-247/verifiser-live-kjop-nokkel-fjerde-video-og-refusjonslop"
+    },
+    "Q5": {
+      "id": "WHO-248",
+      "url": "https://linear.app/qappp/issue/WHO-248/godkjenn-og-publiser-v1-med-gjenopprettingsplan"
+    },
+    "O1": {
+      "id": "WHO-249",
+      "url": "https://linear.app/qappp/issue/WHO-249/vurder-ko-kvalitetsvalg-og-lyduttrekk-etter-kundetilbakemeldinger"
+    },
+    "O2": {
+      "id": "WHO-250",
+      "url": "https://linear.app/qappp/issue/WHO-250/vurder-inteluniversal-og-app-store-som-egne-senere-lop"
+    }
+  }
+}

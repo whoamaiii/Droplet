@@ -1,0 +1,765 @@
+{
+  "auditDate": "2026-09-28",
+  "project": "https://linear.app/qappp/project/droplet-fra-prototype-til-betalt-mac-app-31ed7e727670",
+  "tasks": [
+    {
+      "key": "P1",
+      "m": "M0",
+      "title": "Fastsett v1: tre gratis filer, US$4.99 og tydelige lisensvilkår",
+      "p": 2,
+      "kind": "Produktbeslutning",
+      "owner": "Quentin beslutter; utvikler konkretiserer",
+      "effort": "S · ca. 0,5 dag",
+      "deps": [],
+      "e": "Brukerens mål er tre gratis videoer og engangskjøp rundt US$5. Appen har ingen lisensmodell i dag.",
+      "done": [
+        "Bekreft én pris (forslag US$4.99) for både direktekjøp og kjøp etter prøvekvoten; bestem om markedsført pris inkluderer lokale avgifter.",
+        "Fastsett forslag: én person/to aktive Mac-er, varig rett til kjøpt hovedversjon, hvilke oppdateringer som inngår og realistisk vedlikeholdsperiode. Ingen automatisk fornyelse.",
+        "Definer tre nye, vellykkede lagringer per lokal bruker/installasjon; feil, avbrudd, duplikater og automatiske retry teller ikke. Etter kvoten sperres nye nedlastinger, mens aktivering, støtte og eksisterende filer forblir tilgjengelig.",
+        "Fastsett støttet v1 som Apple Silicon/macOS 14+ bare hvis testmatrisen består; dokumenter lokal trial-begrensning og at nullstilling med systemtilgang ikke kan forhindres perfekt.",
+        "Fastsett offline-policy før implementering; forslag valider ved oppstart høyst én gang/døgn, 30 dagers toleranse ved nettfeil, tydelig varsel og gjenoppretting."
+      ]
+    },
+    {
+      "key": "P2",
+      "m": "M0",
+      "title": "Avklar tillatt bruk og få betalingsleverandøren til å godta produktet",
+      "p": 2,
+      "kind": "Ekstern lanseringsport",
+      "owner": "Quentin/kontoeier, med forberedt produktbeskrivelse",
+      "effort": "S · 0,5–1 dag + leverandørventing",
+      "deps": [],
+      "e": "Appen er en yt-dlp-front-end med YouTube-spesifikke forsøk. Apple 5.2.3 krever kildetillatelse; Lemon Squeezy har produkt- og IP-regler. Godkjenning er ikke undersøkt i en faktisk butikk.",
+      "done": [
+        "Dokumenter lovlig tiltenkt bruk: egne videoer eller materiale kunden har rett/tillatelse til å hente; vurder kildenes vilkår og unngå løfter om DRM-/betalingsmursomgåelse.",
+        "Velg direktedistribusjon som v1-rute. Ikke bruk notarization som bevis for juridisk godkjenning.",
+        "Forbered konkret leverandørhenvendelse og få eksplisitt tillatelse før den sendes. Skaff produkt-/butikkaksept, KYC og utbetalingsmulighet for Norge før live-salg.",
+        "Sammenlign Lemon Squeezy med Paddle og Gumroad ved avslag; ikke bytt leverandør uten å oppdatere plan, gebyrer og lisensintegrasjon."
+      ],
+      "sources": [
+        "https://developer.apple.com/app-store/review/guidelines/#intellectual-property",
+        "https://docs.lemonsqueezy.com/help/getting-started/prohibited-products",
+        "https://docs.lemonsqueezy.com/help/getting-started/supported-countries"
+      ]
+    },
+    {
+      "key": "P3",
+      "m": "M0",
+      "title": "Kartlegg lisenser og lovlig redistribusjon av hele nedlastingsmotoren",
+      "p": 2,
+      "kind": "Bekreftet distribusjonsmangel",
+      "owner": "Utvikler; juridisk avklaring ved behov",
+      "effort": "M · 1–3 dager",
+      "deps": [],
+      "e": "Ingen tredjepartsnotiser finnes i repoet. Lokal FFmpeg 9.0.1 er bygget med --enable-gpl/--enable-version3. yt-dlp-kilde er Unlicense, men offisielle PyInstaller-bundler inneholder GPLv3+ kode.",
+      "done": [
+        "Lag komponentliste med eksakte versjoner, arkitektur, build-flagg, opprinnelse, checksums og lisenser for yt-dlp, FFmpeg/ffprobe, Python hvis brukt, JS-runtime/EJS og alle medleverte biblioteker.",
+        "Velg dokumentert redistribuerbar build; ikke kopier Homebrew-binary uten å håndtere dynamiske biblioteker og lisensvilkår.",
+        "Legg ved nødvendige notices/lisenstekster og tilgjengelig tilsvarende kildekode/buildinstruksjoner der lisensen krever det; vurder grenser mellom separat CLI og proprietær app konkret.",
+        "Avklar eventuell kodek-/patentrelevans for valgte bygg og salgsmarkeder. Ikke anta at betaling er forbudt eller at hele Swift-appen automatisk må åpnes."
+      ],
+      "sources": [
+        "https://github.com/yt-dlp/yt-dlp#licensing",
+        "https://ffmpeg.org/legal.html"
+      ]
+    },
+    {
+      "key": "P4",
+      "m": "M0",
+      "title": "Klargjør Apple Developer-konto og Developer ID for distribusjon",
+      "p": 2,
+      "kind": "Ekstern lanseringsport",
+      "owner": "Quentin gjør konto-, identitets- og betalingssteg",
+      "effort": "S · 0,5 dag + Apple-venting",
+      "deps": [],
+      "e": "Installert Droplet er ad-hoc-signert, uten TeamIdentifier. Lokal nøkkelring har 0 Developer ID Application-identiteter og 2 Apple Development-identiteter; dette bekrefter ikke medlemskapsstatus.",
+      "done": [
+        "Kontroller om aktivt Apple Developer Program-medlemskap finnes; ikke kjøp et nytt automatisk. Standardpris er US$99/år eller lokal pris.",
+        "Opprett/hent riktig Developer ID Application-sertifikat med privatnøkkel hos kontoeier; konfigurer notarytool uten å lagre hemmeligheter i repo/Linear.",
+        "Avklar publisert selgernavn og valgt konto-/organisasjonstype.",
+        "Dokumenter tilgang, fornyelsesansvar og gjenoppretting uten å eksponere sertifikathemmeligheter."
+      ],
+      "sources": [
+        "https://developer.apple.com/programs/enroll/",
+        "https://developer.apple.com/developer-id/"
+      ]
+    },
+    {
+      "key": "P5",
+      "m": "M0",
+      "title": "Avklar Droplet-navn, domene og stabil appidentitet",
+      "p": 2,
+      "kind": "Produkt-/distribusjonsport",
+      "owner": "Quentin beslutter; utvikler undersøker",
+      "effort": "S · 0,5–1 dag",
+      "deps": [],
+      "e": "Info.plist bruker local.quentinthiessen.droplet og har ingen appikonressurs. LaunchAgent bruker com.quentinthiessen.droplet. Endring etter lansering kan påvirke Keychain, oppdateringer og lagret kvote.",
+      "done": [
+        "Undersøk navnekollisjoner/varemerke og et tilgjengelig salgsdomene; domenekjøp krever egen kostnadsgodkjenning.",
+        "Velg permanent bundle-ID og avklar migrasjon fra dagens utviklings-ID før lisens-/Keychain-data tas i bruk.",
+        "Bevar dråpeidentiteten; lag ferdig appikon, versjonsstrategi og selger-/støtteidentitet.",
+        "Ikke endre eksisterende brukerdata eller autostart før en migrasjon er prøvd."
+      ]
+    },
+    {
+      "key": "B1",
+      "m": "M1",
+      "title": "Bevar lokale rettinger og etabler en testbar bygggrunnmur",
+      "p": 2,
+      "kind": "Bekreftet vedlikeholdsmangel",
+      "owner": "Utvikler",
+      "effort": "M · 1–2 dager",
+      "deps": [],
+      "e": "main.swift er 1265 linjer. main.swift/build.sh har 283 innsettinger og 58 slettinger mot HEAD 591b139. Ingen testmål eller prosjektmanifest finnes. Typecheck, bash -n og diff --check består.",
+      "done": [
+        "Ta reversibel, privat baseline av dagens kilde/patch før oppdeling. Bevar .omo og annen uvedkommende lokal tilstand; commit/push bare etter egen autorisasjon.",
+        "Lag modulgrenser for DownloadEngine/DownloadResult, trial, lisens, oppdateringer og visning uten å redesigne dråpeopplevelsen.",
+        "Etabler kjørbare tester med fake prosess/API/klokke/lagring og en separat release-build som ikke installerer over brukerens app.",
+        "Bevar runToken-/prosessidentitetskontroll, original-URL gjennom retries og app-eid prosessopprydding; legg inn relevante regresjonstester."
+      ]
+    },
+    {
+      "key": "B2",
+      "m": "M1",
+      "title": "Pakk en komplett motor som virker uten Homebrew",
+      "p": 2,
+      "kind": "Bekreftet salgsblokker",
+      "owner": "Utvikler",
+      "effort": "M · 2–5 dager",
+      "deps": [
+        "P3",
+        "B1"
+      ],
+      "e": "main.swift:173,179,348,395 hardkoder /opt/homebrew. Installerte appressurser inneholder ingen motor. Dagens YouTube-støtte kan også trenge EJS og støttet JavaScript-runtime.",
+      "done": [
+        "Pakk fastlåste, kontrollerte yt-dlp-/FFmpeg-/ffprobe- og nødvendige runtime-filer i appen etter P3; løs alle dylib-avhengigheter innen støttet distribusjon.",
+        "Slå opp hjelpere relativt til Bundle; bruk kontrollert miljø og eksplisitte runtime-stier som virker ved Finder-start uten shell-PATH.",
+        "Test ren installasjon uten Homebrew/Python/Node/Deno fra brukeren; håndter manglende/skadet hjelper med en forståelig feil.",
+        "Ingen stille nettinstallasjon av kjørbar kode eller endringer i brukerens Homebrew. Motoroppdateringer skal gå via signert appoppdatering i v1."
+      ],
+      "sources": [
+        "https://github.com/yt-dlp/yt-dlp#dependencies"
+      ]
+    },
+    {
+      "key": "B3",
+      "m": "M1",
+      "title": "Rett parsing av oppdelte prosessmeldinger og vis reell fremdrift",
+      "p": 2,
+      "kind": "Reprodusert feil",
+      "owner": "Utvikler",
+      "effort": "M · 1–2 dager",
+      "deps": [
+        "B1"
+      ],
+      "e": "main.swift:196–245 splitter hvert pipe-chunk separat. Isolert test av dagens DownloadManager: '[down' + 'load] 42.0%\\n' ga progress 0.0. Ingen buffering av ufullstendige linjer/UTF-8.",
+      "done": [
+        "Buffer bytes/ufullstendige linjer mellom lesinger og flush siste linje ved EOF før endelig resultat.",
+        "Bruk yt-dlp sine strukturerte progress-/resultatfelt fremfor skjør matching av presentasjonstekst der mulig.",
+        "Skill henting, video, lyd og sammenslåing; unngå at 100% betyr ferdig før filen er endelig lagret.",
+        "Test oppdelte UTF-8-tegn, flere linjer/chunk, CR/LF, EOF og utdata fra en avbrutt eller erstattet prosess."
+      ]
+    },
+    {
+      "key": "B4",
+      "m": "M1",
+      "title": "Verifiser ferdig fil og unngå filnavnkollisjoner og falsk suksess",
+      "p": 2,
+      "kind": "Reprodusert feil og bekreftet risiko",
+      "owner": "Utvikler",
+      "effort": "M · 1–3 dager",
+      "deps": [
+        "B3"
+      ],
+      "e": "main.swift:188 bruker kun %(title)s.%(ext)s. main.swift:266–271 setter done ved exit 0 uten filkontroll. Isolert test viste done uten produsert fil. Finder-knappen åpner bare Downloads.",
+      "done": [
+        "La et vellykket DownloadResult inneholde videoidentitet, faktisk sluttsti, ny/eksisterende-status, filstørrelse og verifisert medieformat.",
+        "Bruk unik/sikker navnepolicy og atomisk sluttføring; ikke overskriv annen fil og ikke bland .part-filer mellom videoer med samme tittel.",
+        "Kontroller eksistens, ikke-null størrelse og spillbar mediestruktur etter etterbehandling. Skille gjenbrukt eksisterende fil fra ny vellykket nedlasting.",
+        "Håndter full disk, manglende tilgang, svært langt/Unicode-navn og flyttet mappe. Show in Finder skal markere riktig fil.",
+        "Test MP4-løftet: dagens /best-fallback kan gi annet format. Velg eksplisitt støttet format/codec-policy og kontroller resultatet uten å maskere feil."
+      ]
+    },
+    {
+      "key": "B5",
+      "m": "M1",
+      "title": "Gjør bruk av nettleserinnlogging eksplisitt og valgfri",
+      "p": 2,
+      "kind": "Bekreftet personvernproblem",
+      "owner": "Utvikler",
+      "effort": "M · 1–2 dager",
+      "deps": [
+        "B1"
+      ],
+      "e": "main.swift:129–155 legger automatisk --cookies-from-browser inn for alle oppdagede nettlesere etter enhver nedlastingsfeil. README anbefaler Full Disk Access for Safari.",
+      "done": [
+        "Standardflyten bruker ingen nettlesercookies og krever ikke Full Disk Access.",
+        "Hvis innlogget nedlasting tilbys, forklar formål og la brukeren velge én nettleser/profil og samtykke før bruk; gjør valget lett å trekke tilbake.",
+        "Ikke send cookies, video-URLer eller nettleserhistorikk til lisensleverandør eller egen support/telemetri.",
+        "Test at nettverksfeil, diskfeil og ikke-støttet URL aldri starter lesing av nettleserdata; alternativet kan utsettes helt fra v1.",
+        "Oppdater feilhjelp og dokumentasjon slik at de ikke ber brukeren svekke macOS-sikkerheten for vanlig bruk."
+      ]
+    },
+    {
+      "key": "B6",
+      "m": "M1",
+      "title": "Isoler yt-dlp-konfigurasjon og rett retry-, timeout- og URL-logikk",
+      "p": 2,
+      "kind": "Bekreftede kodeproblemer; noen utfall ikke runtime-testet",
+      "owner": "Utvikler",
+      "effort": "M · 1–3 dager",
+      "deps": [
+        "B1",
+        "B5"
+      ],
+      "e": "Argumentene i main.swift:174–189 mangler --ignore-config. Alle prosessfeil går videre i retry-stigen (281–287). YouTube detekteres med host.contains (122). Try Again nullstiller kun fase (82) og kan bruke gammel clipboardURL.",
+      "done": [
+        "Ignorer brukerens globale yt-dlp-konfigurasjon, plugins og ukontrollerte miljøvalg så appens fil-/sikkerhetspolicy er deterministisk; bevar støtte for nødvendige kontrollerte avhengigheter.",
+        "Klassifiser nettverk, kilde, autentisering, rettigheter, disk og manglende motor; retry bare midlertidige feil med avgrenset tid/antall.",
+        "Valider vertsnavn med eksakt domene/subdomenegrense. Behold input som separate Process-argumenter; test ugyldige URLer og spesialtegn.",
+        "Gjør Try Again til faktisk nytt forsøk på samme URL, og tilby egen handling for å hente ny lenke fra utklippstavlen.",
+        "Sikre tidsgrenser på nettoperasjoner og eksterne versjonskall; ikke blokker hovedtråden med readDataToEndOfFile/waitUntilExit (393–404)."
+      ]
+    },
+    {
+      "key": "B7",
+      "m": "M1",
+      "title": "Bevis at avbryt, avslutt og omstart rydder bare Droplets arbeid",
+      "p": 2,
+      "kind": "Regresjonsport og gjenværende livssyklusrisiko",
+      "owner": "Utvikler",
+      "effort": "M · 1–2 dager",
+      "deps": [
+        "B1"
+      ],
+      "e": "Tidligere rettinger finnes i main.swift:407–571. cancel bruker forsinkede PID-snapshots, én killTimer kan erstattes, shutdownForQuit kansellerer timer før task-sjekk. Disse kanttilfellene er ikke verifisert nå.",
+      "done": [
+        "Test cancel→ny start, gjentatt cancel, cancel→quit før ett sekund, avslutning under sammenslåing og normal systemavslutning.",
+        "Sikre eierskap med prosessidentitet/starttid eller annen robust isolasjon; ikke send forsinket signal til gjenbrukt PID.",
+        "Kontroller at ingen egne barn overlever og at urelatert ffmpeg-/yt-dlp-jobb alltid overlever.",
+        "Test to samtidige appstarter, sov/hvile/oppvåkning og lukking av popover under jobb; ingen dobbelt ikon eller respawn-sløyfe.",
+        "Bevar tidligere gode rettinger fremfor å markere dem som fortsatt manglende."
+      ]
+    },
+    {
+      "key": "B8",
+      "m": "M1",
+      "title": "Gjør bygge- og installasjonsflyten transaksjonell ved feil",
+      "p": 2,
+      "kind": "Bekreftet byggefeil ved feilsti",
+      "owner": "Utvikler",
+      "effort": "S · 0,5–1 dag",
+      "deps": [
+        "B1"
+      ],
+      "e": "build.sh:19 bootout før kompilering (25); EXIT-trap rydder bare temp. Ved swiftc-feil gjenopprettes ikke en lastet LaunchAgent. Installerer delvis bundle før signering og kjører xattr -cr.",
+      "done": [
+        "Skill build fra install/run. Kompiler og signer komplett kandidat før eksisterende app/autostart berøres.",
+        "Simuler compiler-, kopierings- og signeringsfeil med mock launchctl: gammel app og tidligere autostart skal beholdes/gjenopprettes.",
+        "Bytt hele app-pakken med kontrollert rollback; ikke bruk globalt prosessnavn som eneste identitet når gammel app stoppes.",
+        "Offentlig release-pipeline må aldri fjerne quarantine som erstatning for riktig signering/notarization.",
+        "Rett README slik at bygg, lokale smoke-flagg og prosessopprydding samsvarer med implementasjonen."
+      ]
+    },
+    {
+      "key": "B9",
+      "m": "M1",
+      "title": "Fullfør den lille kundeopplevelsen uten å miste dråpedesignet",
+      "p": 3,
+      "kind": "Nødvendige brukerfunksjoner",
+      "owner": "Utvikler/design",
+      "effort": "M · 1–3 dager",
+      "deps": [
+        "B4",
+        "B6"
+      ],
+      "e": "Appen har kun fast popover 320×420, fast Downloads-mappe, generell Finder-knapp og ingen Settings/About/lisensflate. README lover MP4 og 1000+ nettsteder uten avgrenset støttematrise.",
+      "done": [
+        "Lag kort førsteoppstart som viser hvor menyikonet bor, tillatelser og tre gratis filer; ikke krev konto for prøvebruk.",
+        "Legg til enkel lagringsmappevelger med gjenoppretting ved manglende mappe, Settings/About med versjon, lisens og støtte samt korrekt Reveal/Open av sluttfil.",
+        "Vis nyttig tom/feil/merge-status; legg til tilgjengelige navn, tastaturnavigasjon, redusert bevegelse og lesbar tekst i lys/mørk modus.",
+        "Visuelt test ekte app i de viktigste tilstandene og bekreft auto-close/reopen. Appkontrollen ga timeout under audit, så visuell kontroll gjenstår.",
+        "Behold enkel ettklikk-flyt. Kø, lyduttrekk og avansert kvalitetsvalg utsettes fra v1."
+      ]
+    },
+    {
+      "key": "C0",
+      "m": "M2",
+      "title": "Opprett og verifiser et engangskjøp med lisens i testbutikken",
+      "p": 2,
+      "kind": "Betalingsintegrasjon / kontoavhengighet",
+      "owner": "Quentin for konto; utvikler for testoppsett",
+      "effort": "S · 0,5–1 dag + tilgang",
+      "deps": [
+        "P1",
+        "P2"
+      ],
+      "e": "Ingen checkout-URL, produkt-/variant-ID eller lisensintegrasjon finnes. Lemon Squeezy støtter single payment og automatisk lisens i kvittering.",
+      "done": [
+        "Konfigurer sandbox-produkt/variant for engangsbetaling; riktig pris, ingen abonnementsfornyelse, lisenslengde og aktiveringsgrense fra P1.",
+        "Registrer tillatte store/product/variant-IDer og checkout-URL som offentlig konfigurasjon; hold administrative API-nøkler ute av app/repo/Linear.",
+        "Bekreft at både nettside og app går til samme kjøp, og at testkvittering inneholder nøkkel og nedlastingsinstruksjon.",
+        "Test avbrutt/mislykket betaling, fullført kjøp og forsinket leveranse. Ikke utled betalt status fra nettleserens suksess-URL.",
+        "Hold test/live-konfigurasjon atskilt; live-aktivering krever egen verifisering før lansering."
+      ],
+      "sources": [
+        "https://docs.lemonsqueezy.com/help/licensing/generating-license-keys",
+        "https://docs.lemonsqueezy.com/help/getting-started/test-mode"
+      ]
+    },
+    {
+      "key": "C1",
+      "m": "M2",
+      "title": "Implementer tre gratis vellykkede nedlastinger med krasjsikker kvote",
+      "p": 2,
+      "kind": "Ny kjernefunksjon",
+      "owner": "Utvikler",
+      "effort": "M · 1–3 dager",
+      "deps": [
+        "P1",
+        "P5",
+        "B4",
+        "B7"
+      ],
+      "e": "Ingen trial- eller persistenslogikk finnes i main.swift. Korrekt filresultat må være på plass før antall kan telles rettferdig.",
+      "done": [
+        "Sentraliser adgangskontroll foran alle nedlastingsinnganger; tre fullførte nye filer tillates, fjerde krever gyldig entitlement.",
+        "Bruk job-ID og varig reserve→fullfør/frigi-logikk så dobbeltklikk, retries og krasj ikke dobbeltteller eller gir uendelige gratis fullføringer.",
+        "Feil, cancel, gjenbrukt eksisterende fil og automatisk retry bruker ikke kvote. Gjenoppta delvis jobb og krasj etter lagring avstemmes dokumentert.",
+        "Lagre kvote i passende lokal lagring/Keychain og bevar ved ordinær oppdatering/reinstallasjon; håndter låst/utilgjengelig lagring tydelig uten å starte ny trial.",
+        "Dokumenter begrensning: lokal prøvekvote er misbrukshemmende, ikke manipulasjonssikker eller sikkert per person på tvers av maskiner."
+      ]
+    },
+    {
+      "key": "C2",
+      "m": "M2",
+      "title": "Implementer riktig produktbundet lisensaktivering og deaktivering",
+      "p": 2,
+      "kind": "Ny kjernefunksjon",
+      "owner": "Utvikler",
+      "effort": "M · 1–3 dager",
+      "deps": [
+        "B1",
+        "C0"
+      ],
+      "e": "Ingen lisenskode finnes. Leverandørens offentlige License API bruker kundens nøkkel og instance_id; en gyldig nøkkel alene kan tilhøre et annet produkt.",
+      "done": [
+        "Lag provider-adapter for activate/validate/deactivate over HTTPS med validerte URLer, timeout og tydelig feilhåndtering.",
+        "Krev korrekt store_id, product_id og variant_id i tillegg til valid/activated, aktiv status og riktig instance_id. Avvis testnøkler i live-produktet.",
+        "Lagre returnert instance_id; gjenvalider eksisterende aktivering i stedet for å bruke ny enhetsplass ved hver appstart.",
+        "Ikke bygg inn adminnøkkel eller privat signeringsnøkkel. Ikke logg lisensnøkler, e-post eller svar som inneholder kundedata.",
+        "Test feil produkt, ugyldig/utløpt/sperret nøkkel, overskredet enhetsgrense og deaktivering av bare gjeldende enhet."
+      ],
+      "sources": [
+        "https://docs.lemonsqueezy.com/guides/tutorials/license-keys"
+      ]
+    },
+    {
+      "key": "C3",
+      "m": "M2",
+      "title": "Lagre lisens trygt og håndter frakobling og leverandørfeil",
+      "p": 2,
+      "kind": "Ny lisensrobusthet",
+      "owner": "Utvikler",
+      "effort": "M · 1–2 dager",
+      "deps": [
+        "C2",
+        "P5"
+      ],
+      "e": "Keychain og offline-policy finnes ikke. Et engangskjøp må ikke bli til en tilfeldig låsing hver gang API eller nett er nede.",
+      "done": [
+        "Lagre nøkkel, instance_id, siste verifisering og minimal lokal entitlement i Keychain med stabil tjenesteidentitet; ikke bruk en redigerbar isPro=true som eneste kontroll.",
+        "Implementer vedtatt toleranseperiode fra P1; skill timeout/DNS/429/5xx fra autoritativ ugyldig eller deaktivert lisens.",
+        "Gjør validering asynkron, cache/rate-limit med backoff og vis forståelige meldinger. Ikke avbryt en allerede startet nedlasting ved midlertidig API-feil.",
+        "Test klokkeendring, låst Keychain, reinstallasjon, ny signering, oppdatering og bortfall/gjenkomst av nett uten å miste enhetsplass.",
+        "Dokumenter begrensning ved lokal cache. Hvis sterk kryptografisk offline-lisens senere kreves, trengs serverutstedt signert entitlement; ikke påstå at et vanlig API-JSON-svar er slik."
+      ]
+    },
+    {
+      "key": "C4",
+      "m": "M2",
+      "title": "Lag prøveindikator, kjøpsknapp og enkel lisensaktivering",
+      "p": 2,
+      "kind": "Ny kundeopplevelse",
+      "owner": "Utvikler/design",
+      "effort": "M · 1–2 dager",
+      "deps": [
+        "C1",
+        "C3",
+        "B9"
+      ],
+      "e": "MainView har kun idle/downloading/done/failed. Ingen kjøps-/aktiveringsflater eller gjenstående kvote vises.",
+      "done": [
+        "Vis 3/2/1 gratis nedlastinger igjen før start; etter tredje vis en rolig kjøpsflate med engangspris og «Jeg har lisensnøkkel».",
+        "La kunder kjøpe før første gratisnedlasting og aktivere uten å måtte bruke opp prøvekvoten.",
+        "Åpne verifisert hosted checkout i nettleser; manuell innliming av nøkkel er nok for v1. Aldri send nøkkelen i querystrenger eller anta rettighet fra redirect.",
+        "Vis aktiv lisens, gjenoppretting, flytt/deaktiver enhet og lenke til støtte. Enhetsgrense og offline-feil forklares uten kodefeilmeldinger.",
+        "Eksisterende filer, hjelp og avslutt skal fortsatt fungere når prøvekvoten er brukt."
+      ]
+    },
+    {
+      "key": "C5",
+      "m": "M2",
+      "title": "Definer og test refusjon, tapt nøkkel og bytte av Mac",
+      "p": 2,
+      "kind": "Kundedrift og lisenslivssyklus",
+      "owner": "Quentin/support + utvikler",
+      "effort": "S · 0,5–1 dag",
+      "deps": [
+        "C0",
+        "C3"
+      ],
+      "e": "Ingen rutine finnes. Dokumentasjonen garanterer ikke her at en refund automatisk sperrer alle nøkler; dette må prøves i aktuell butikk.",
+      "done": [
+        "Test om refusjon/chargeback faktisk deaktiverer nøkkelen; hvis ikke, etabler verifisert manuell prosedyre for lavt v1-volum eller signaturverifisert/idempotent webhook på server.",
+        "Dokumenter hvordan mistet Mac frigjør enhetsplass uten at kunden må kjøpe igjen, og hvordan kvittering/nøkkel sendes på nytt gjennom leverandøren.",
+        "Test revokasjon, feilaktig sperring og gjenåpning; autoritativ sperring respekteres, mens nettfeil følger C3.",
+        "Eventuelle webhook/adminhemmeligheter skal være på server og hendelser må tåle duplikater/feil rekkefølge; ingen slik backend kreves bare for offentlig nøkkelvalidering.",
+        "Beskriv kundens rettigheter og supportansvar sammen med E1, uten å love ubegrenset evig kundestøtte."
+      ]
+    },
+    {
+      "key": "C6",
+      "m": "M2",
+      "title": "Bevis hele prøve- og lisensmatrisen med automatiserte tester",
+      "p": 2,
+      "kind": "Lanseringskritisk verifisering",
+      "owner": "Utvikler/QA",
+      "effort": "M · 1–2 dager",
+      "deps": [
+        "C4",
+        "C5"
+      ],
+      "e": "Ingen eksisterende tester dekker kommersiell logikk.",
+      "done": [
+        "Test 0→1→2→3 fullføringer, sperret fjerde, aktiver→tillatt fjerde og direktekjøp før trial.",
+        "Test avbrudd, feil, dobbelthendelser, like titler, eksisterende fil, oppdatering, krasj og reinstallasjon uten feil kvotetrekk.",
+        "Test feil produkt/testnøkkel, enhetsgrense, offline/429/5xx, fornyet validering, refusjon, deaktivering og gjenoppretting.",
+        "Bruk deterministiske fakes for enhetstester og separat ekte sandbox-integrasjon; mock alene teller ikke som gjennomført kjøp.",
+        "Kontroller at release-binær ikke har gratis opplåsing, testhemmeligheter eller alternative innganger som omgår kontrollen."
+      ]
+    },
+    {
+      "key": "D1",
+      "m": "M3",
+      "title": "Bygg signert og notarized app, DMG og verifiserbar release-pakke",
+      "p": 2,
+      "kind": "Bekreftet distribusjonsblokker",
+      "owner": "Utvikler med Apple-tilgang",
+      "effort": "M · 1–3 dager",
+      "deps": [
+        "P4",
+        "P5",
+        "B2",
+        "B8",
+        "C6"
+      ],
+      "e": "Dagens build er arm64 macOS14 med codesign --sign - og ingen entitlements/notary/DMG. Installert bundle har Signature=adhoc og ingen TeamIdentifier.",
+      "done": [
+        "Bygg reproducerbar Release med versjon/buildnummer og alle godkjente hjelpere; signer nøstede Mach-O-filer innenfra og ut med Developer ID og passende hardened runtime.",
+        "Fastsett minst nødvendige entitlements ut fra faktisk runtime; ikke deaktiver bibliotekvalidering globalt som snarvei.",
+        "Notariser med notarytool, kontroller logg og staple app/DMG der formatet støtter det. Verifiser signatur og Gatekeeper-vurdering.",
+        "Lag DMG/ZIP med tydelig installasjon til Applications, checksums, release-notat, notices/kildetilbud og sikker oppbevaring av nøyaktig publisert artefakt.",
+        "Ingen fjerning av quarantine, Terminal-kommando eller «Open Anyway» skal være påkrevd i kundens installasjonsløp."
+      ],
+      "sources": [
+        "https://developer.apple.com/developer-id/",
+        "https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution"
+      ]
+    },
+    {
+      "key": "D2",
+      "m": "M3",
+      "title": "Erstatt brew-oppdatering med sikre oppdateringer av hele appen",
+      "p": 2,
+      "kind": "Bekreftet manglende vedlikeholdsløsning",
+      "owner": "Utvikler",
+      "effort": "M · 1–3 dager",
+      "deps": [
+        "B2",
+        "B8",
+        "P5"
+      ],
+      "e": "main.swift:342–389 kjører brew upgrade yt-dlp, også tilgjengelig under nedlasting. ytDlpVersion blokkerer hovedtråden. Ingen oppdatering av Droplet selv finnes.",
+      "done": [
+        "Integrer etablert Mac-oppdateringsløsning, foreslått Sparkle 2, med HTTPS-feed og signerte oppdateringsartefakter.",
+        "Lever motorendringer som del av signert app i v1. Ikke muter signert app-pakke med yt-dlp -U eller oppdater brukerens Homebrew.",
+        "Verifiser signatur/versjon før installasjon; behold gammel app ved feil, og utsett bytte mens nedlasting pågår.",
+        "Test oppdatering v1→v1.0.1 med bevart trial, lisens, mappe og autostart; avvis manipulerte/ufullstendige pakker og håndter feil feed.",
+        "Dokumenter nøkkelbackup, rotasjon, tilbakekalling og trygg tilbakerulling; publisering av feed krever autorisasjon."
+      ],
+      "sources": [
+        "https://sparkle-project.org/documentation/"
+      ]
+    },
+    {
+      "key": "D3",
+      "m": "M3",
+      "title": "Bytt privat KeepAlive-oppsett til normal valgfri start ved innlogging",
+      "p": 3,
+      "kind": "Distribusjons-/migrasjonsarbeid",
+      "owner": "Utvikler",
+      "effort": "M · 1–2 dager",
+      "deps": [
+        "P5",
+        "B7"
+      ],
+      "e": "main.swift:1161–1247 kjenner én personlig LaunchAgent og kjører launchctl ved avslutning. README beskriver manuell sletting og KeepAlive.",
+      "done": [
+        "Bruk passende ServiceManagement/SMAppService-mekanisme for støttet macOS og et tydelig brukerstartet på/av-valg.",
+        "Ingen automatisk respawn etter brukerens Quit. Det skal være én appinstans og ett menyikon.",
+        "Migrer kun den kjente Droplet-agenten reversibelt; bevar uvedkommende LaunchAgents og eksisterende preferanser.",
+        "Test login, logout, reboot, appflytting, oppdatering, avinstallasjon og deaktivering i System Settings."
+      ]
+    },
+    {
+      "key": "E1",
+      "m": "M4",
+      "title": "Avklar selgeransvar, skatt, personvern og forbrukervilkår",
+      "p": 2,
+      "kind": "Ekstern kommersiell port",
+      "owner": "Quentin, eventuelt regnskapsfører/juridisk rådgiver",
+      "effort": "M · 1–2 dager + ekstern avklaring",
+      "deps": [
+        "P1",
+        "P2"
+      ],
+      "e": "Ingen kommersielle dokumenter eller selgeroppsett finnes. Merchant of Record kan håndtere kundesalgets avgifter, men avklarer ikke Quentins egen inntektsføring/næringsstatus.",
+      "done": [
+        "Avklar selgeridentitet, norsk inntektsføring/næringsstatus og utbetalingsoppsett; bruk relevante myndighetskilder, ikke antak at MoR fjerner alle egne plikter.",
+        "Fastsett sluttpris/avgiftsvisning, kvittering, refusjon, reklamasjon, digital levering og eventuell angrerettsmekanisme for aktuelle markeder.",
+        "Skriv korte vilkår og personverntekst som samsvarer med reell dataflyt, lokal trial, lisensleverandør, valgt cookie-funksjon og supportdiagnostikk.",
+        "Dokumenter dataminimering/lagringstid/sletting og eventuelle nødvendige databehandleravtaler. Ingen video-URLer eller nettleserdata i lisenssystemet.",
+        "Få relevante uavklarte vilkår kontrollert før publisering. Kontoavtaler og myndighetsinnsendinger utføres av kontoeier."
+      ],
+      "sources": [
+        "https://www.skatteetaten.no/bedrift-og-organisasjon/starte-og-drive/er-jeg-naringsdrivende/",
+        "https://lovdata.no/dokument/NL/lov/2014-06-20-27",
+        "https://docs.lemonsqueezy.com/help/payments/merchant-of-record"
+      ]
+    },
+    {
+      "key": "E2",
+      "m": "M4",
+      "title": "Lag salgsside med gratisprøve, direktekjøp og ærlige produktløfter",
+      "p": 3,
+      "kind": "Nødvendig salgsflate",
+      "owner": "Utvikler/design; Quentin godkjenner publisering",
+      "effort": "M · 1–3 dager",
+      "deps": [
+        "P5",
+        "C0",
+        "E1",
+        "B9"
+      ],
+      "e": "Ingen nettsted/distribusjonsside finnes. README og appfooter sier 1000+ sites og MP4 uten egen validering av hvert nettsted.",
+      "done": [
+        "Bygg en konkret lokal/staging-side med ekte appbilder, kort demo, tre gratisnedlastinger, kjøp US$4.99 og aktiveringsforklaring.",
+        "Vis støttede Mac-er/macOS, fil-/kildestøtte med kjente begrensninger, enhetsantall, hva engangskjøpet dekker og sluttpris/avgifter tydelig.",
+        "Koble til riktig hosted checkout og verifisert release-nedlasting; ingen offentlig lenke før D1/Q1 og publiseringsgodkjenning.",
+        "Inkluder personvern, vilkår, notices/kildetilbud, kontakt, FAQ og versjonshistorikk. Ingen påstand om støtte for alle nettsteder.",
+        "Test mobil/desktop, tastatur/kontrast, brutte lenker, nedlasting og kjøpsflyt. Bruk eksisterende gratis hosting hvis egnet; nye kostnader avklares."
+      ]
+    },
+    {
+      "key": "E3",
+      "m": "M4",
+      "title": "Lag kundestøtte, trygg diagnostikk og oppdatert dokumentasjon",
+      "p": 3,
+      "kind": "Driftsberedskap",
+      "owner": "Utvikler + Quentin/support",
+      "effort": "S · 0,5–1 dag",
+      "deps": [
+        "B6",
+        "C5"
+      ],
+      "e": "README har feil ~/Droplet-byggsti og sier fortsatt at alle yt-dlp/ffmpeg-prosesser på Mac-en drepes; dette stemmer ikke med dagens kode. Ingen kundestøtte-/lisensveiledning finnes.",
+      "done": [
+        "Oppdater README og korte kundeguider for installasjon, menyikon, tillatelser, kildefeil, prøvekvote, kjøp, tapt nøkkel og ny Mac.",
+        "Lag støttekontakt og ansvar/rimelig svartid; forbered svar på de vanligste problemene.",
+        "Tilby frivillig diagnostikk som viser app-/motorversjon, OS og feilkategori med redigert logg; aldri nøkler, cookies, privat URL, kontoopplysninger eller unødvendige filstier.",
+        "Skill produktfeil, leverandøravbrudd og nettsidens egne begrensninger, og ha rutine for refund/known issue.",
+        "Behold tidligere revisjonshistorikk og dokumenter hva som faktisk er testet."
+      ]
+    },
+    {
+      "key": "E4",
+      "m": "M4",
+      "title": "Budsjetter vedlikehold og planlegg raske motor- og sikkerhetsoppdateringer",
+      "p": 3,
+      "kind": "Kommersiell holdbarhet",
+      "owner": "Quentin/produkteier + utvikler",
+      "effort": "S · 0,5–1 dag",
+      "deps": [
+        "P1",
+        "P2",
+        "D2"
+      ],
+      "e": "Nedlastingsnettsteder endres og motoroppdatering er nødvendig. US$4.99 gir ca. US$4.24 etter bare grunngebyr 5%+$0.50; tillegg, avgifter, utbetaling og support reduserer dette.",
+      "done": [
+        "Lag kalkyle for realistisk netto med kundeland/avgifter, betalings-/utbetalingsgebyrer, refunds, Apple US$99/år, hosting og supporttid.",
+        "Bekreft faktisk under-US$10-prising med valgt leverandør der nødvendig. Ikke presenter nettoeksemplet som garantert utbetaling.",
+        "Definer ansvar og rutine for kildeendringer, sikkerhetsvarsler, leverandøravbrudd, sertifikatfornyelse og nøkkelbackup.",
+        "Definer hvordan motorpatch prøves på tillatte videoer før signert oppdatering, og hvordan feil release trekkes tilbake.",
+        "Avgrens support-/oppdateringsløftet så en lav engangspris er mulig å vedlikeholde; automatiske monitorer opprettes først ved særskilt bestilling."
+      ],
+      "sources": [
+        "https://docs.lemonsqueezy.com/help/getting-started/fees",
+        "https://www.paddle.com/pricing"
+      ]
+    },
+    {
+      "key": "Q1",
+      "m": "M5",
+      "title": "Test signert kundeinstallasjon på ren Mac uten utviklerverktøy",
+      "p": 2,
+      "kind": "Påkrevd leveranseverifisering",
+      "owner": "QA/Quentin med separat Mac eller ren testkonto/VM",
+      "effort": "M · 1–2 dager + maskintilgang",
+      "deps": [
+        "D1",
+        "D2",
+        "D3",
+        "B9"
+      ],
+      "e": "Kun lokal macOS 27.2/Apple Silicon er inspisert. UI-kontroll timeoutet to ganger. Installert app er ikke bevis på at en ny kunde kan bruke release-pakken.",
+      "done": [
+        "Last ned faktisk release-artefakt gjennom nettleser på ren støttet Mac slik at quarantine er med; installer/start uten Terminal, Homebrew eller sikkerhetsomgåelse.",
+        "Test minimumsversjon macOS 14 og aktuell støttet versjon på Apple Silicon; juster salgsstøtte etter faktiske resultater. Intel annonseres ikke uten egen leveranse.",
+        "Kontroller første nedlasting, filtilgang avvist/innvilget, offline-start, appflytting, autostart, sov/vekk og avinstallasjon.",
+        "Verifiser Developer ID, notarization/stapling og Gatekeeper. Bevar skjermbilder og eksakt checksum/buildnummer.",
+        "Gjennomfør signert oppdatering fra forrige kandidat og bekreft bevart lisens, kvote og preferanser."
+      ]
+    },
+    {
+      "key": "Q2",
+      "m": "M5",
+      "title": "Verifiser støttede kilder og mediefiler med tillatt testmateriale",
+      "p": 2,
+      "kind": "Påkrevd funksjonsverifisering",
+      "owner": "QA/utvikler",
+      "effort": "M · 1–2 dager",
+      "deps": [
+        "B2",
+        "B4",
+        "B5",
+        "B6",
+        "B7"
+      ],
+      "e": "Denne auditen brukte fake motor for to feilreproduksjoner; ingen ny virkelig videonedlasting eller mediedekoding er verifisert. Tidligere smoke-test er historisk, ikke ny release-proof.",
+      "done": [
+        "Lag en liten dokumentert matrise med egne/tillatte videoer fra de nettstedene v1 faktisk markedsføres for; test ingen kilder uten nødvendig tilgang.",
+        "Kontroller video+lyd, faktisk MP4/codec, store/lange videoer, like titler, Unicode, eksisterende fil og korrekt Finder-resultat.",
+        "Spill/dekod leverte filer og bekreft filstørrelse/varighet; ikke bruk exitstatus eller GUI-checkmark alene som bevis.",
+        "Test tapt nett, begrenset disk, tilgangsnekt, ikke-støttet URL og avbrutt sammenslåing. Ingen trial-kvotetrekk ved feil.",
+        "Dokumenter begrensninger, dato, motorversjon og observerte nettstedfeil; ikke lov universell eller permanent kildestøtte."
+      ]
+    },
+    {
+      "key": "Q3",
+      "m": "M5",
+      "title": "Gjennomfør liten ekstern beta og rett funn før salg",
+      "p": 2,
+      "kind": "Brukervalidering",
+      "owner": "Quentin inviterer godkjente testere; utvikler retter",
+      "effort": "M · 2–5 dager + tilbakemeldingstid",
+      "deps": [
+        "Q1",
+        "Q2",
+        "C6",
+        "E3"
+      ],
+      "e": "Ingen ekstern kunde-/betatest er dokumentert. Dråpeopplevelsen må prøves av folk som ikke kjenner utviklingsoppsettet.",
+      "done": [
+        "Avtal 3–5 frivillige testere på støttede maskiner; meldinger/invitasjoner sendes kun med autorisasjon.",
+        "La dem installere, finne menyikonet, laste ned, avbryte, bruke opp prøvekvoten og aktivere en testlisens uten veiledet Terminal-bruk.",
+        "Samle samtykket, minimert tilbakemelding om forståelse, feil og betalingsfriksjon; observer særlig om de finner lagret fil.",
+        "Registrer og rett alle reproducerbare alvorlige feil; oppdater test-/støttematrise. Ingen ekte betaling kreves av betatestere.",
+        "Lag kort betaoppsummering med bestått/feilet/ikke testet og beslutning om kandidat."
+      ]
+    },
+    {
+      "key": "Q4",
+      "m": "M5",
+      "title": "Verifiser live kjøp, nøkkel, fjerde video og refusjonsløp",
+      "p": 2,
+      "kind": "Siste kommersielle prøve",
+      "owner": "Quentin utfører godkjent betaling; utvikler verifiserer",
+      "effort": "S · 0,5–1 dag",
+      "deps": [
+        "Q3",
+        "E1",
+        "E2",
+        "E4"
+      ],
+      "e": "Sandbox alene verifiserer ikke live produkt-IDer, skatt, e-postlevering, lisens og nedlastingslenker.",
+      "done": [
+        "Bruk godkjent begrenset live-kjøp med eksplisitt utgiftsramme; ikke belaste kort eller utstede refund uten riktig autorisasjon.",
+        "Kontroller vist pris/avgifter, én engangsbetaling, kvittering, nøkkel, riktig installer og ingen abonnement.",
+        "Verifiser både direktekjøp og gratis-til-betalt: tredje gratis fullføring sperrer neste, betalt nøkkel åpner fjerde og virker etter omstart.",
+        "Prøv enhetsbytte/tapt nøkkel og en godkjent refusjons-/sperretest; logg kun redigert bevis.",
+        "Kontroller ekte støtte-/kontakt- og hjelpelinker; ingen testprodukt-IDer eller sandbox-lenker finnes i kundenes release."
+      ]
+    },
+    {
+      "key": "Q5",
+      "m": "M5",
+      "title": "Godkjenn og publiser v1 med gjenopprettingsplan",
+      "p": 2,
+      "kind": "Endelig lanseringsport",
+      "owner": "Quentin godkjenner; utvikler utfører autorisert publisering",
+      "effort": "S · 0,5–1 dag",
+      "deps": [
+        "Q4",
+        "P3",
+        "E3"
+      ],
+      "e": "Brukeren har bedt om prosjekt og arbeidsplan. Ingen faktisk salgslansering, kontoforpliktelse eller publisering er utført i audit.",
+      "done": [
+        "Samle eksakt release-checksum, testbevis, utestående begrensninger, butikkaksept, signering, tredjepartsnotiser, support og økonomi i en go/no-go-liste.",
+        "Ingen åpne kritiske/høye feil i kvote, lisens, datatap, installasjon eller betaling. Dokumenterte lavrisikofunn kan prioriteres etter v1.",
+        "Få eksplisitt godkjenning av konkret nettsted/release/pris før publisering; Git-commit/push/release gjøres bare innen gitt autorisasjon.",
+        "Publiser nettsted, korrekt app/DMG og oppdateringsfeed; verifiser som utlogget kunde fra faktisk offentlig nedlastingsadresse.",
+        "Dokumenter hvordan salget pauses og siste gode app gjenopprettes uten å slette kundedata eller bryte aktive lisenser."
+      ]
+    },
+    {
+      "key": "O1",
+      "m": "M6",
+      "title": "Vurder kø, kvalitetsvalg og lyduttrekk etter kundetilbakemeldinger",
+      "p": 4,
+      "kind": "Valgfritt etter v1",
+      "owner": "Produkteier/utvikler",
+      "effort": "M/L · avhenger av valgt funksjon",
+      "deps": [
+        "Q5"
+      ],
+      "e": "Kø og ekstra formater er ikke nødvendig for tre-gratis→engangskjøp. Flere kodeker/formater kan øke support- og lisensarbeid.",
+      "done": [
+        "Dokumenter konkret etterspørsel før omfang velges.",
+        "Prioriter én utvidelse om gangen uten å gjøre hovedflyten tyngre.",
+        "Definer trial-telling for hver ferdig fil i batch før kø implementeres; verifiser kodeklisenser før lyd/transkoding.",
+        "Hold utenfor v1-lanseringskrav."
+      ]
+    },
+    {
+      "key": "O2",
+      "m": "M6",
+      "title": "Vurder Intel/Universal og App Store som egne senere løp",
+      "p": 4,
+      "kind": "Valgfritt etter v1",
+      "owner": "Produkteier/utvikler",
+      "effort": "L · egen vurdering",
+      "deps": [
+        "Q5"
+      ],
+      "e": "Dagens app bygges bare for arm64. App Store har separate krav til kildetillatelser, sandbox og kjøpsmodell.",
+      "done": [
+        "Mål etterspørsel fra Intel-brukere før Universal eller separat Intel-build planlegges; alle hjelpere må støtte arkitekturen.",
+        "Verifiser minimum macOS og ren fysisk Intel-maskin før støtte annonseres.",
+        "Undersøk App Store bare hvis nødvendig kildetillatelse og kompatibel sandbox/StoreKit-modell er realistisk.",
+        "Ingen løfte om senere plattformstøtte i v1-salgstekst."
+      ]
+    }
+  ]
+}
