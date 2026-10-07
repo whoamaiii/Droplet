@@ -33,7 +33,7 @@ struct MediaVerifier {
             throw Failure.unsupportedContainer
         }
         let brand = String(decoding: header[8..<12], as: UTF8.self)
-        guard ["isom", "iso2", "mp41", "mp42", "avc1", "M4V ", "MSNV"].contains(brand) else {
+        guard ["isom", "iso2", "iso4", "iso5", "iso6", "mp41", "mp42", "avc1", "dash", "M4V ", "MSNV"].contains(brand) else {
             throw Failure.unsupportedContainer
         }
         let asset = AVURLAsset(url: file)

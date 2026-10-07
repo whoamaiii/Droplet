@@ -8,6 +8,8 @@ enum DownloadFailure: Equatable {
     static func classify(_ message: String) -> Self {
         let text = message.lowercased()
         func has(_ values: [String]) -> Bool { values.contains { text.contains($0) } }
+        // "not found" below would otherwise report a missing FFmpeg as an unavailable video.
+        if has(["ffmpeg not found", "ffprobe not found", "ffmpeg is not installed", "ffprobe is not installed"]) { return .missingEngine }
         if has(["no space left", "disk quota exceeded", "read-only file system"]) { return .disk }
         if has(["permission denied", "operation not permitted", "access is denied"]) { return .permission }
         if has(["sign in", "sign-in", "login required", "log in", "authentication", "private video", "members-only", "cookies"]) { return .authentication }

@@ -6,13 +6,14 @@ struct MediaVerifierTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        func generate(_ name: String, codec: String, audio: Bool) throws -> URL {
+        func generate(_ name: String, codec: String, audio: Bool, brand: String? = nil) throws -> URL {
             let file = root.appendingPathComponent(name)
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/ffmpeg")
             p.arguments = ["-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=12"]
                 + (audio ? ["-f", "lavfi", "-i", "sine=frequency=440"] : [])
                 + ["-t", "0.25", "-c:v", codec] + (audio ? ["-c:a", "aac"] : ["-an"])
+                + (brand.map { ["-brand", $0] } ?? [])
                 + [file.path]
             p.standardOutput = FileHandle.nullDevice
             p.standardError = FileHandle.nullDevice
@@ -54,6 +55,8 @@ struct MediaVerifierTests {
         try workspace.remove()
         let silent = try generate("silent.mp4", codec: "libx264", audio: false)
         expectNil(try await MediaVerifier().verify(silent).audioCodec)
+        let iso6 = try generate("iso6.mp4", codec: "libx264", audio: false, brand: "iso6")
+        expectEqual(try await MediaVerifier().verify(iso6).videoCodec, "h264", "A standard ISO base-media brand is a valid MP4")
         let unsupported = try generate("unsupported.mp4", codec: "mpeg4", audio: false)
         do {
             _ = try await MediaVerifier().verify(unsupported)

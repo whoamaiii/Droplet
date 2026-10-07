@@ -30,6 +30,7 @@ struct DownloadPolicyTests {
             ("ERROR: HTTP Error 503: Service Unavailable", .network),
             ("ERROR: Resource temporarily unavailable", .network),
             ("ERROR: Connection reset by peer", .network),
+            ("ERROR: Postprocessing: ffmpeg not found. Please install or provide the path using --ffmpeg-location", .missingEngine),
             ("ERROR: certificate verify failed", .unknown),
             ("ERROR: unexpected internal failure", .unknown)
         ]

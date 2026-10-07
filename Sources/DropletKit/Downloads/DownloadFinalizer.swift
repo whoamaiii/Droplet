@@ -48,6 +48,9 @@ struct DownloadFinalizer {
         if error is Failure {
             return "The download engine did not identify this video. No final file was saved."
         }
+        if case DownloadWorkspace.Failure.invalidFolder = error {
+            return "The download folder is not a regular folder, or it is a symbolic link. Choose another folder in Settings."
+        }
         let ns = error as NSError
         let code: Int32?
         if case let DownloadWorkspace.Failure.filesystem(value) = error { code = value }

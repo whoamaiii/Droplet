@@ -193,11 +193,21 @@ final class DownloadManager: ObservableObject {
     }
 
     private func beginDownload(url: URL, consent: BrowserLoginConsent?) {
+        authenticationFailure = false
+        guard let validated = DownloadURLPolicy.parse(url.absoluteString) else {
+            activeURL = nil
+            phase = .failed("Invalid video link. Use an HTTP or HTTPS URL without embedded account credentials.")
+            return
+        }
+        clipboardURL = validated
+        activeURL = validated          // the ladder must not follow a clipboard change
+
+        // Pre-flight failures keep the validated link so the explicit Try Again
+        // action the messages point to is actually available afterwards.
         guard !isUpdating else {
             phase = .failed("The download engine is updating. Wait for the update to finish, then try again.")
             return
         }
-        authenticationFailure = false
         if let trialProblem { phase = .failed(trialProblem); return }
         if trialExhausted {
             phase = .failed("Your three free downloads are complete. Paid activation is not available in this build yet.")
@@ -207,13 +217,6 @@ final class DownloadManager: ObservableObject {
             phase = .failed(destinationProblem)
             return
         }
-        guard let validated = DownloadURLPolicy.parse(url.absoluteString) else {
-            activeURL = nil
-            phase = .failed("Invalid video link. Use an HTTP or HTTPS URL without embedded account credentials.")
-            return
-        }
-        clipboardURL = validated
-        activeURL = validated          // the ladder must not follow a clipboard change
 
         if let trialAccounting {
             let job = UUID()
@@ -538,7 +541,7 @@ final class DownloadManager: ObservableObject {
         case .network: return "Check your connection and try this link again later."
         default: break
         }
-        if lower.contains("sign in to confirm") || lower.contains("bot") {
+        if lower.contains("sign in to confirm") || lower.contains("not a bot") || lower.contains("captcha") {
             return "The site is asking for a human check. Open the original page to confirm access. Browser login is optional and requires your approval for this download."
         }
         if lower.contains("403") || lower.contains("forbidden") {

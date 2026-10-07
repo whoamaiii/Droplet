@@ -57,6 +57,8 @@ struct DownloadWorkspaceTests {
         expectTrue(DownloadFinalizer.message(for: DownloadWorkspace.Failure.filesystem(2)).contains("moved or removed"))
         let cocoa = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteOutOfSpaceError)
         expectTrue(DownloadFinalizer.message(for: cocoa).contains("disk space"))
+        expectTrue(DownloadFinalizer.message(for: DownloadWorkspace.Failure.invalidFolder).contains("Settings"),
+                   "A symbolic-link or non-folder destination must point the user to Settings")
     }
 
 }
