@@ -1,10 +1,16 @@
 import Foundation
 import Security
-import LocalAuthentication
 
 /// Local cache is not a signed offline entitlement. Missing, unreadable and
 /// corrupt credentials remain distinct, so a storage failure cannot reset trial
 /// usage or silently grant paid access. No administrative API secret is stored.
+///
+/// The item lives in the login (file-based) keychain, which a non-sandboxed
+/// Developer ID app uses without extra entitlements. Its access list trusts
+/// this app's designated requirement, so later releases signed by the same
+/// team read it without a prompt. Data-protection-only attributes and
+/// authentication contexts are deliberately not used: they do not apply to
+/// this keychain and must not redirect queries to a different one.
 struct KeychainLicenseStore: LicenseStore {
     private let service: String
     private let account: String
@@ -21,18 +27,10 @@ struct KeychainLicenseStore: LicenseStore {
          kSecAttrSynchronizable as String: false]
     }
 
-    private var silentContext: LAContext {
-        let context = LAContext()
-        context.interactionNotAllowed = true
-        return context
-    }
-
     func load() throws -> StoredLicense? {
         var request = query
         request[kSecReturnData as String] = true
         request[kSecMatchLimit as String] = kSecMatchLimitOne
-        // Background startup must never open an authentication prompt.
-        request[kSecUseAuthenticationContext as String] = silentContext
         var result: CFTypeRef?
         let status = SecItemCopyMatching(request as CFDictionary, &result)
         if status == errSecItemNotFound { return nil }
@@ -49,11 +47,8 @@ struct KeychainLicenseStore: LicenseStore {
         try license.validateStructure()
         let data = try JSONEncoder().encode(license)
         guard data.count <= 16_384 else { throw LicenseError.invalidResponse }
-        var updateQuery = query
-        updateQuery[kSecUseAuthenticationContext as String] = silentContext
-        let attributes: [String: Any] = [kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
-        let status = SecItemUpdate(updateQuery as CFDictionary, attributes as CFDictionary)
+        let attributes: [String: Any] = [kSecValueData as String: data]
+        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if status == errSecItemNotFound {
             var addition = query
             attributes.forEach { addition[$0.key] = $0.value }
@@ -63,9 +58,7 @@ struct KeychainLicenseStore: LicenseStore {
     }
 
     func remove() throws {
-        var request = query
-        request[kSecUseAuthenticationContext as String] = silentContext
-        let status = SecItemDelete(request as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw LicenseError.secureStorage(status) }
     }
 }

@@ -1,19 +1,8 @@
 name: CI
 
-# The repository is private, so macOS runner minutes are billed. Runs are
-# limited to code changes and cancelled when a newer push supersedes them.
+# The repository is private, so macOS runner minutes are billed (10x Linux).
+# Runs only for pull requests and on demand (Actions → CI → Run workflow).
 on:
-  push:
-    branches: [main, 'claude/**']
-    paths:
-      - 'Sources/**'
-      - 'Tests/**'
-      - 'Resources/**'
-      - 'scripts/**'
-      - 'Package.swift'
-      - 'Info.plist'
-      - 'build.sh'
-      - '.github/workflows/ci.yml'
   pull_request:
   workflow_dispatch:
 
