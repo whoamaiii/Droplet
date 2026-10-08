@@ -207,7 +207,7 @@ struct MainView: View {
     private var idleView: some View {
         VStack(spacing: 14) {
             linkPreview
-            if !license.isLicensed, let remaining = manager.trialRemaining {
+            if !license.isLicensed, !license.needsOnlineCheck, let remaining = manager.trialRemaining {
                 Button(remaining > 0 ? "\(remaining) of 3 free downloads left"
                        : license.isConfigured ? "Free trial complete · Buy or enter key" : "Free trial complete · Details",
                        action: onSettings)
@@ -390,7 +390,9 @@ struct MainView: View {
                 .font(.system(size: 30))
                 .foregroundStyle(.orange)
                 .accessibilityHidden(true)
-            Text(message)
+            Text(manager.needsLicense && license.needsOnlineCheck
+                 ? "Droplet needs to confirm your license. Connect to the internet and choose Check license."
+                 : message)
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -407,7 +409,20 @@ struct MainView: View {
 
     private var purchaseActions: some View {
         VStack(spacing: 10) {
-            if license.checkoutURL != nil {
+            if license.needsOnlineCheck {
+                Button {
+                    Task { @MainActor in
+                        await license.refreshIfDue(force: true)
+                        if license.isLicensed { manager.retryFromFailure() }
+                    }
+                } label: {
+                    Label("Check license", systemImage: "checkmark.seal")
+                        .font(.system(size: 13, weight: .bold))
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(license.isWorking)
+                .keyboardShortcut(.defaultAction)
+            } else if license.checkoutURL != nil {
                 Button(action: onBuy) {
                     Label("Buy Droplet", systemImage: "cart")
                         .font(.system(size: 13, weight: .bold))

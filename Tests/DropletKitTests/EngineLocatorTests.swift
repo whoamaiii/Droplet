@@ -1,13 +1,20 @@
 import Foundation
 @testable import DropletKit
 
+final class MemoryFingerprintStore: EngineFingerprintStore {
+    var value: String?
+    func load() -> String? { value }
+    func save(_ digest: String) throws { value = digest }
+}
+
 struct EngineLocatorTests {
     func testBundledUpdatedAndDevelopmentResolution() {
         let helpers = URL(fileURLWithPath: "/App/Droplet.app/Contents/Helpers")
         let brew = URL(fileURLWithPath: "/opt/homebrew/bin")
         let updated = (url: URL(fileURLWithPath: "/Users/me/Library/Application Support/Droplet/Engine/yt-dlp"), version: "2026.09.30")
-        func resolve(_ present: Set<String>, updated: (url: URL, version: String)? = nil, bundled: String? = "2026.08.19") -> EngineLocation {
-            EngineLocator.resolve(helpers: helpers, updated: updated, bundledVersion: bundled,
+        func resolve(_ present: Set<String>, updated: (url: URL, version: String)? = nil, bundled: String? = "2026.08.19",
+                     release: Bool = true) -> EngineLocation {
+            EngineLocator.resolve(helpers: release ? helpers : nil, updated: updated, bundledVersion: bundled,
                                   developmentDirectories: [brew], isExecutable: { present.contains($0.path) })
         }
         let bundle: Set = [helpers.path + "/yt-dlp", helpers.path + "/ffmpeg", helpers.path + "/deno", brew.path + "/yt-dlp"]
@@ -24,13 +31,15 @@ struct EngineLocatorTests {
                     "An app update with a newer bundled engine wins over an older download")
         expectNil(resolve(bundle.subtracting([helpers.path + "/deno"])).jsRuntime)
 
-        let development = resolve([brew.path + "/yt-dlp"], updated: updated)
+        let development = resolve([brew.path + "/yt-dlp"], updated: updated, release: false)
         expectEqual(development.downloader.path, brew.path + "/yt-dlp")
         expectEqual(development.ffmpegDirectory, brew)
         expectFalse(development.isBundled)
 
-        let missing = resolve([])
-        expectEqual(missing.downloader.path, helpers.path + "/yt-dlp", "A missing engine reports the expected bundle path")
+        let damaged = resolve([helpers.path + "/yt-dlp", brew.path + "/yt-dlp"], updated: updated)
+        expectEqual(damaged.downloader.path, helpers.path + "/yt-dlp",
+                    "A damaged release bundle never falls back to Homebrew or the updated copy")
+        expectTrue(damaged.isBundled)
     }
 
     func testVersionOrdering() {
@@ -59,7 +68,8 @@ struct EngineLocatorTests {
         try Data("#!/bin/sh\n".utf8).write(to: foreign)
 
         let directory = root.appendingPathComponent("Engine", isDirectory: true)
-        let store = UpdatedEngineStore(directory: directory, updatableSources: [helpers, directory])
+        let fingerprints = MemoryFingerprintStore()
+        let store = UpdatedEngineStore(directory: directory, updatableSources: [helpers, directory], fingerprints: fingerprints)
         expectNil(store.installed())
         expectThrows(try store.prepareStaging(from: foreign), "Only the bundled or previously updated engine is staged")
 
@@ -70,6 +80,7 @@ struct EngineLocatorTests {
         let installed = try store.install(staged: staged, version: "2026.09.30")
         expectEqual(store.installed()?.url, installed)
         expectEqual(store.installed()?.version, "2026.09.30")
+        expectEqual(fingerprints.value, UpdatedEngineStore.sha256(installed))
         expectFalse(FileManager.default.fileExists(atPath: staged.deletingLastPathComponent().path), "Staging is removed")
 
         let second = try store.prepareStaging(from: installed)
@@ -78,6 +89,16 @@ struct EngineLocatorTests {
         store.discard(staged: bundled)
         expectTrue(FileManager.default.fileExists(atPath: bundled.path), "Discard never touches files outside staging")
 
+        let original = try Data(contentsOf: installed)
+        try Data("#!/bin/sh\necho planted\n".utf8).write(to: installed)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: installed.path)
+        expectNil(store.installed(), "A replaced engine no longer matches its recorded fingerprint")
+        try original.write(to: installed)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: installed.path)
+        expectEqual(store.installed()?.url, installed)
+        fingerprints.value = nil
+        expectNil(store.installed(), "Without a recorded fingerprint the update is not trusted")
+        fingerprints.value = UpdatedEngineStore.sha256(installed)
         try FileManager.default.setAttributes([.posixPermissions: 0o777], ofItemAtPath: installed.path)
         expectNil(store.installed(), "A writable-by-others engine is never executed")
     }

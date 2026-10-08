@@ -27,6 +27,8 @@ final class LicenseController: ObservableObject {
 
     static let revalidationInterval: TimeInterval = 24 * 60 * 60
     static let offlineGrace: TimeInterval = 30 * 24 * 60 * 60
+    /// Tolerated clock difference for a check recorded "in the future".
+    static let clockSkew: TimeInterval = 24 * 60 * 60
 
     init(product: LicenseProduct?, checkoutURL: URL?, client: any LicenseClient,
          store: any LicenseStore, now: @escaping () -> Date = Date.init) {
@@ -36,10 +38,14 @@ final class LicenseController: ObservableObject {
         self.store = store
         self.now = now
         guard let expected = expectedProduct else { state = .notConfigured; return }
+        state = Self.loadState(from: store, expected: expected)
+    }
+
+    private static func loadState(from store: any LicenseStore, expected: LicenseProduct) -> State {
         do {
-            if let stored = try store.load(), expected.accepts(stored.product) { state = .licensed(stored) }
-            else { state = .unlicensed }
-        } catch { state = .unavailable }
+            if let stored = try store.load(), expected.accepts(stored.product) { return .licensed(stored) }
+            return .unlicensed
+        } catch { return .unavailable }
     }
 
     static func live(configuration: ProductConfiguration) -> LicenseController {
@@ -51,11 +57,14 @@ final class LicenseController: ObservableObject {
     var isConfigured: Bool { state != .notConfigured }
 
     /// True only while the stored license is within its offline allowance.
+    /// A check dated in the future (clock change or edited cache) does not
+    /// extend the allowance; it needs a fresh online check.
     var isLicensed: Bool {
         guard case .licensed(let license) = state else { return false }
         let current = now()
         if let expiry = license.expiresAt, expiry <= current { return false }
-        return current.timeIntervalSince(license.lastValidatedAt) < Self.offlineGrace
+        let age = current.timeIntervalSince(license.lastValidatedAt)
+        return age > -Self.clockSkew && age < Self.offlineGrace
     }
 
     /// Licensed, but the offline allowance ran out: one successful check restores access.
@@ -103,8 +112,12 @@ final class LicenseController: ObservableObject {
     }
 
     /// Re-validates when a day has passed (or when forced from Settings).
+    /// An unreadable Keychain (for example still locked right after login) is
+    /// read again first, so a paying customer is not held to the trial.
     func refreshIfDue(force: Bool = false) async {
-        guard let product = expectedProduct, !isWorking, case .licensed(let license) = state else { return }
+        guard let product = expectedProduct, !isWorking else { return }
+        if state == .unavailable { state = Self.loadState(from: store, expected: product) }
+        guard case .licensed(let license) = state else { return }
         let age = now().timeIntervalSince(license.lastValidatedAt)
         guard force || age >= Self.revalidationInterval || age < 0 else { return }
         isWorking = true

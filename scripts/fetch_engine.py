@@ -163,11 +163,19 @@ def github_latest(repo):
         return json.load(response)["tag_name"]
 
 
-def pin_url(url):
+def pin_url(url, resolve_redirect=False):
+    """Hashes `url` and keeps the file in the cache for the next release.
+
+    The original URL is recorded: GitHub release downloads redirect to signed
+    links that expire within hours. Only "latest"-style URLs that redirect to
+    a permanent versioned file (FFmpeg) record the resolved address."""
     with tempfile.TemporaryDirectory() as raw:
         target = Path(raw) / "file"
         final = download(url, target)
-        return {"url": final, "sha256": sha256(target)}
+        digest = sha256(target)
+        CACHE.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(target, CACHE / digest)
+        return {"url": final if resolve_redirect else url, "sha256": digest}
 
 
 def pin(lock, args):
@@ -203,7 +211,7 @@ def pin(lock, args):
         ffmpeg = lock.setdefault("ffmpeg", {})
         sources = ffmpeg.get("download", {})
         for arch in ARCHES:
-            ffmpeg[arch] = {tool: pin_url(sources[arch][tool]) for tool in ("ffmpeg", "ffprobe")}
+            ffmpeg[arch] = {tool: pin_url(sources[arch][tool], resolve_redirect=True) for tool in ("ffmpeg", "ffprobe")}
         if ffmpeg.get("license_url"):
             ffmpeg["license"] = pin_url(ffmpeg["license_url"])
         print("ffmpeg pinned from the URLs in ffmpeg.download")

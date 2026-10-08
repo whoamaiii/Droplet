@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Darwin
 
 /// The executables a download needs. `jsRuntime` is passed to yt-dlp
@@ -14,18 +15,24 @@ struct EngineLocation: Equatable {
 /// Customer builds carry the engine in `Contents/Helpers`. A newer yt-dlp
 /// fetched by the in-app updater is preferred only while it is newer than the
 /// bundled copy, so an app update with a fresher engine wins automatically.
-/// Development builds without helpers fall back to Homebrew.
+/// Only development builds (no Helpers folder at all) fall back to Homebrew;
+/// a damaged release bundle reports a missing engine instead of running
+/// whatever happens to be in /usr/local/bin.
 enum EngineLocator {
     static let downloaderName = "yt-dlp"
     static let ffmpegName = "ffmpeg"
     static let ffprobeName = "ffprobe"
     static let jsRuntimeName = "deno"
 
+    /// `helpers` is nil for development builds, which have no Helpers folder.
     static func resolve(helpers: URL?, updated: (url: URL, version: String)?, bundledVersion: String?,
                         developmentDirectories: [URL], isExecutable: (URL) -> Bool) -> EngineLocation {
-        if let helpers,
-           isExecutable(helpers.appendingPathComponent(downloaderName)),
-           isExecutable(helpers.appendingPathComponent(ffmpegName)) {
+        if let helpers {
+            guard isExecutable(helpers.appendingPathComponent(downloaderName)),
+                  isExecutable(helpers.appendingPathComponent(ffmpegName)) else {
+                return EngineLocation(downloader: helpers.appendingPathComponent(downloaderName),
+                                      ffmpegDirectory: helpers, jsRuntime: nil, isBundled: true)
+            }
             var downloader = helpers.appendingPathComponent(downloaderName)
             if let updated, EngineVersion.isNewer(updated.version, than: bundledVersion) {
                 downloader = updated.url
@@ -39,11 +46,10 @@ enum EngineLocator {
             return EngineLocation(downloader: directory.appendingPathComponent(downloaderName),
                                   ffmpegDirectory: directory, jsRuntime: nil, isBundled: false)
         }
-        // Nothing usable: keep the expected bundle location so the launch
-        // failure is reported as a missing engine.
-        let expected = helpers ?? developmentDirectories.first ?? URL(fileURLWithPath: "/opt/homebrew/bin")
+        // Nothing usable: the launch failure is reported as a missing engine.
+        let expected = developmentDirectories.first ?? URL(fileURLWithPath: "/opt/homebrew/bin")
         return EngineLocation(downloader: expected.appendingPathComponent(downloaderName),
-                              ffmpegDirectory: expected, jsRuntime: nil, isBundled: helpers != nil)
+                              ffmpegDirectory: expected, jsRuntime: nil, isBundled: false)
     }
 
     static var bundleHelpers: URL {
@@ -51,7 +57,7 @@ enum EngineLocator {
     }
 
     static var live: EngineLocation {
-        resolve(helpers: bundleHelpers,
+        resolve(helpers: FileManager.default.fileExists(atPath: bundleHelpers.path) ? bundleHelpers : nil,
                 updated: UpdatedEngineStore.live.installed(),
                 bundledVersion: Bundle.main.object(forInfoDictionaryKey: "DropletBundledEngineVersion") as? String,
                 developmentDirectories: [URL(fileURLWithPath: "/opt/homebrew/bin"), URL(fileURLWithPath: "/usr/local/bin")],
@@ -101,28 +107,46 @@ enum EngineStagingError: Error, Equatable {
     case invalidVersion
 }
 
+/// Where the SHA-256 of the installed update is recorded. The live store is
+/// this app's Keychain item: other processes of the same user can rewrite
+/// files in Application Support, but not silently rewrite that item.
+protocol EngineFingerprintStore {
+    func load() -> String?
+    func save(_ digest: String) throws
+}
+
 struct UpdatedEngineStore: EngineStaging {
     let directory: URL
     /// Only standalone copies from these directories may be updated.
     let updatableSources: [URL]
+    let fingerprints: any EngineFingerprintStore
+    var digest: (URL) -> String? = UpdatedEngineStore.sha256
 
     static var live: UpdatedEngineStore {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Droplet/Engine", isDirectory: true)
-        return UpdatedEngineStore(directory: support, updatableSources: [EngineLocator.bundleHelpers, support])
+        return UpdatedEngineStore(directory: support, updatableSources: [EngineLocator.bundleHelpers, support],
+            fingerprints: KeychainEngineFingerprintStore(service: (Bundle.main.bundleIdentifier ?? "droplet") + ".engine"))
+    }
+
+    static func sha256(_ file: URL) -> String? {
+        guard let data = try? Data(contentsOf: file, options: .alwaysMapped) else { return nil }
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private var executable: URL { directory.appendingPathComponent(EngineLocator.downloaderName) }
     private var metadataFile: URL { directory.appendingPathComponent("engine.json") }
     private struct Metadata: Codable { let version: String }
 
-    /// The installed update, if it is a private, user-owned executable with a
-    /// recorded version. Anything else is ignored rather than executed.
+    /// The installed update, if it is a private, user-owned executable whose
+    /// contents still match the fingerprint recorded at installation. Anything
+    /// else is ignored rather than executed, and the bundled engine is used.
     func installed() -> (url: URL, version: String)? {
         guard Self.isPrivate(directory, directory: true), Self.isPrivate(executable, directory: false),
               let data = try? Data(contentsOf: metadataFile), data.count <= 4096,
               let metadata = try? JSONDecoder().decode(Metadata.self, from: data),
-              EngineVersion.components(metadata.version) != nil else { return nil }
+              EngineVersion.components(metadata.version) != nil,
+              let expected = fingerprints.load(), digest(executable) == expected else { return nil }
         return (executable, metadata.version)
     }
 
@@ -152,11 +176,13 @@ struct UpdatedEngineStore: EngineStaging {
         guard EngineVersion.components(version) != nil else { throw EngineStagingError.invalidVersion }
         guard staged.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL,
               Self.isPrivate(staged, directory: false) else { throw EngineStagingError.unsafeLocation }
-        // Binary first, then metadata: an interruption leaves an older
-        // recorded version, which only makes the bundled copy more likely to win.
+        guard let fingerprint = digest(staged) else { throw EngineStagingError.unsafeLocation }
+        // Binary, fingerprint, then metadata: any interruption leaves a
+        // mismatch or an older recorded version, so the bundled copy is used.
         guard Darwin.rename(staged.path, executable.path) == 0 else {
             throw CocoaError(.fileWriteUnknown, userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(errno))])
         }
+        try fingerprints.save(fingerprint)
         try JSONEncoder().encode(Metadata(version: version)).write(to: metadataFile, options: [.atomic])
         try? FileManager.default.removeItem(at: staged.deletingLastPathComponent())
         return executable

@@ -60,11 +60,17 @@ final class DownloadManager: ObservableObject {
     var isLicensed: () -> Bool = { false }
     /// Whether this build can sell a license (store configured).
     var purchaseAvailable = false
-    /// True while the visible failure is the trial limit, so the bubble can
-    /// offer Buy / Enter key instead of a pointless retry.
+    /// True while the visible failure is the trial limit (not some other
+    /// failure that happens after the trial), so the bubble can offer
+    /// Buy / Enter key instead of a pointless retry.
     var needsLicense: Bool {
-        guard case .failed = phase else { return false }
-        return trialExhausted && !isLicensed()
+        guard case .failed(let message) = phase else { return false }
+        return message == trialLimitMessage && !isLicensed()
+    }
+    private var trialLimitMessage: String {
+        purchaseAvailable
+            ? "Your three free downloads are used. Buy Droplet or enter your license key to keep downloading."
+            : "Your three free downloads are complete. Paid activation is not available in this build."
     }
     private let trialAccounting: (any TrialAccounting)?
     private var trialJobID: UUID?
@@ -223,9 +229,7 @@ final class DownloadManager: ObservableObject {
         let licensed = isLicensed()
         if !licensed, let trialProblem { phase = .failed(trialProblem); return }
         if !licensed, trialExhausted {
-            phase = .failed(purchaseAvailable
-                ? "Your three free downloads are used. Buy Droplet or enter your license key to keep downloading."
-                : "Your three free downloads are complete. Paid activation is not available in this build.")
+            phase = .failed(trialLimitMessage)
             return
         }
         if let destinationProblem {

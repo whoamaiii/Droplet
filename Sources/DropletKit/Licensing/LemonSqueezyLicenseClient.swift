@@ -14,7 +14,13 @@ struct LemonSqueezyLicenseClient: LicenseClient {
 
     func activate(key: String) async throws -> LicenseEvidence {
         let response = try await send("activate", ["license_key": key, "instance_name": instanceName], flag: "activated")
-        return try evidence(from: response)
+        do { return try evidence(from: response) } catch {
+            // The provider counted an activation this app cannot use; release it.
+            if let id = response.instance?.id, !id.isEmpty {
+                try? await deactivate(key: key, instance: LicenseInstance(instanceID: id))
+            }
+            throw error
+        }
     }
 
     func validate(key: String, instance: LicenseInstance) async throws -> LicenseEvidence {

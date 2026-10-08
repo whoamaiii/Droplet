@@ -92,7 +92,10 @@ publishes. Re-pin before every release so customers start with a current yt-dlp.
 prebuilt GPL FFmpeg builds for Apple Silicon and Intel. Droplet only remuxes
 (copies H.264/AAC streams into MP4, no encoding), so an LGPL build is enough
 and has lighter obligations. Whichever you ship, you must include its license
-and offer its source (`SOURCES.txt` in the app lists the links). Replace the
+and offer its source (`SOURCES.txt` in the app lists the links). After pinning,
+set `ffmpeg.version` and `ffmpeg.source` in `engine.lock.json` to the **exact**
+source release and build configuration of the binaries you ship (for a GPL
+build, the generic ffmpeg.org page is not enough). Replace the
 `ffmpeg.download` URLs if you build or choose a different FFmpeg.
 
 **Size.** Deno is large (roughly 100 MB per architecture). Without it, many

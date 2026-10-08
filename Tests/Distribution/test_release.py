@@ -164,5 +164,28 @@ class EngineFetch(unittest.TestCase):
         self.assertIn("non-HTTPS", result.stderr)
 
 
+class EnginePinning(unittest.TestCase):
+    def test_pins_record_the_stable_url_not_the_expiring_redirect(self):
+        import importlib.util
+        from unittest.mock import patch
+        spec = importlib.util.spec_from_file_location("fetch_engine", FETCH)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as raw:
+            module.CACHE = Path(raw) / "cache"
+
+            def fake_download(url, destination):
+                destination.write_bytes(b"payload")
+                return "https://objects.example.invalid/signed?se=2026-10-08T17:00:00Z&sig=abc"
+
+            with patch.object(module, "download", fake_download):
+                stable = module.pin_url("https://github.com/yt-dlp/yt-dlp/releases/download/2026.09.30/yt-dlp_macos")
+                resolved = module.pin_url("https://ffmpeg.example.invalid/redirect/latest/ffmpeg.zip", resolve_redirect=True)
+            self.assertEqual(stable["url"], "https://github.com/yt-dlp/yt-dlp/releases/download/2026.09.30/yt-dlp_macos")
+            self.assertTrue(resolved["url"].startswith("https://objects.example.invalid/"))
+            self.assertEqual(stable["sha256"], digest(b"payload"))
+            self.assertTrue((module.CACHE / digest(b"payload")).exists(), "Pinned files are cached for the release")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -137,7 +137,7 @@ struct SettingsView: View {
 
     private func activate() {
         let key = keyInput
-        Task {
+        Task { @MainActor in
             await license.activate(key: key)
             if license.isLicensed { keyInput = "" }
         }

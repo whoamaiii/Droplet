@@ -52,6 +52,8 @@ struct TestRunner {
             ("License refusal, expiry and deactivation", { await LicenseControllerTests().testProviderRefusalExpiryAndDeactivation() }),
             ("Unconfigured and unreadable licenses fail closed", { await LicenseControllerTests().testUnconfiguredAndUnreadableStatesFailClosed() }),
             ("Paid license bypasses exhausted trial", { try await LicenseControllerTests().testPaidLicenseBypassesTheExhaustedTrial() }),
+            ("Keychain retry, clock skew and purchase offer", { try await LicenseControllerTests().testReviewFixesForRetryClockAndPurchaseOffer() }),
+            ("Unusable activation is released", { await LicenseControllerTests().testUnusableActivationIsReleased() }),
             ("Engine locator resolution", { EngineLocatorTests().testBundledUpdatedAndDevelopmentResolution() }),
             ("Engine version ordering", { EngineLocatorTests().testVersionOrdering() }),
             ("Private engine staging and installation", { try EngineLocatorTests().testPrivateStagingAndInstallation() }),

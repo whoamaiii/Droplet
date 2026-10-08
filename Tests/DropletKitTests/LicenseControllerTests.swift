@@ -289,6 +289,59 @@ struct LicenseControllerTests {
         expectEqual(h.processes.count, 1, "Losing the license restores the trial gate")
     }
 
+    @MainActor
+    func testReviewFixesForRetryClockAndPurchaseOffer() async throws {
+        var now = Date(timeIntervalSince1970: 5_000_000)
+        let client = FakeLicenseClient()
+        let store = MemoryLicenseStore()
+        store.stored = StoredLicense(key: "KEY", product: Self.evidence().product, instance: LicenseInstance(instanceID: "inst-1"),
+                                     lastValidatedAt: now, expiresAt: nil)
+        store.failLoad = true
+        let license = LicenseController(product: Self.product, checkoutURL: nil, client: client, store: store, now: { now })
+        expectEqual(license.state, .unavailable)
+        store.failLoad = false
+        await license.refreshIfDue()
+        expectTrue(license.isLicensed, "A Keychain that was locked at launch is read again")
+        expectTrue(client.calls.isEmpty, "Re-reading the Keychain does not create a new activation")
+
+        store.stored = StoredLicense(key: "KEY", product: Self.evidence().product, instance: LicenseInstance(instanceID: "inst-1"),
+                                     lastValidatedAt: now.addingTimeInterval(400 * 24 * 60 * 60), expiresAt: nil)
+        let future = LicenseController(product: Self.product, checkoutURL: nil, client: client, store: store, now: { now })
+        expectFalse(future.isLicensed, "A check dated far in the future does not extend the offline allowance")
+        expectTrue(future.needsOnlineCheck)
+        now.addTimeInterval(60)
+        client.validation = .success(Self.evidence())
+        await future.refreshIfDue()
+        expectTrue(future.isLicensed, "One successful check restores access")
+
+        let h = DownloadHarness()
+        let trial = try PersistentTrialAccounting(store: LicenseTestTrialStore())
+        let result = DownloadResult(sourceURL: URL(string: "https://example.com/video")!,
+            identity: VideoIdentity(extractor: "fixture", mediaID: "one"), fileURL: URL(fileURLWithPath: "/tmp/video.mp4"),
+            media: VerifiedMedia(byteCount: 1, duration: 1, container: "mp4", videoCodec: "h264", audioCodec: nil), isNewFile: true)
+        for _ in 0..<3 { let job = UUID(); try trial.reserve(jobID: job); try trial.complete(jobID: job, result: result) }
+        let manager = DownloadManager(environment: h.environment, trialAccounting: trial)
+        manager.purchaseAvailable = true
+        manager.useNewClipboardLink()
+        h.clipboard = URL(string: "ftp://example.com/not-a-video")!
+        manager.useNewClipboardLink()
+        if case .failed = manager.phase {} else { recordFailure("Expected an invalid-link failure") }
+        expectFalse(manager.needsLicense, "Only the trial-limit failure offers a purchase")
+    }
+
+    func testUnusableActivationIsReleased() async {
+        let transport = FakeTransport()
+        let client = LemonSqueezyLicenseClient(transport: transport)
+        var body = try! JSONSerialization.jsonObject(with: LemonSqueezyLicenseTests.body("activated", true)) as! [String: Any]
+        body["meta"] = NSNull()
+        transport.responses = [.success(HTTPResponse(data: try! JSONSerialization.data(withJSONObject: body), statusCode: 200)),
+                               .success(HTTPResponse(data: LemonSqueezyLicenseTests.body("deactivated", true), statusCode: 200))]
+        do { _ = try await client.activate(key: "KEY"); recordFailure("An unparseable activation was accepted") }
+        catch { expectEqual(error as? LicenseError, .invalidResponse) }
+        expectEqual(transport.requests.map { $0.url?.lastPathComponent }, ["activate", "deactivate"])
+        expectTrue(String(data: transport.requests[1].httpBody!, encoding: .utf8)!.contains("instance_id=inst-1"))
+    }
+
     private func expectNotNilLicense(_ store: MemoryLicenseStore, file: StaticString = #filePath, line: UInt = #line) {
         Checks.check(store.stored != nil, "Expected a stored license", file: file, line: line)
     }
