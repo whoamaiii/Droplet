@@ -45,16 +45,27 @@ final class DownloadManager: ObservableObject {
 
     @Published private(set) var downloadsFolder: URL
     @Published private(set) var destinationProblem: String?
-    private let environment: DownloadEnvironment
+    private var environment: DownloadEnvironment
     private let updater: EngineUpdater
     private var updateObservation: AnyCancellable?
     private var updatingObservation: AnyCancellable?
+    private var engineObservation: AnyCancellable?
     @Published private(set) var isUpdating = false
     private var authenticationFailure = false
 
     @Published private(set) var trialRemaining: Int?
     @Published private(set) var trialProblem: String?
     var trialExhausted: Bool { trialRemaining == 0 }
+    /// Paid access bypasses the trial entirely. Supplied by the license controller.
+    var isLicensed: () -> Bool = { false }
+    /// Whether this build can sell a license (store configured).
+    var purchaseAvailable = false
+    /// True while the visible failure is the trial limit, so the bubble can
+    /// offer Buy / Enter key instead of a pointless retry.
+    var needsLicense: Bool {
+        guard case .failed = phase else { return false }
+        return trialExhausted && !isLicensed()
+    }
     private let trialAccounting: (any TrialAccounting)?
     private var trialJobID: UUID?
     private static let trialStorageMessage = "Droplet could not safely save your free download count. Any video already saved remains available. Restore access to your previous download folder, check Application Support permissions, then restart Droplet before downloading again."
@@ -77,6 +88,10 @@ final class DownloadManager: ObservableObject {
         self.updater = updater ?? EngineUpdater(environment: environment)
         updateObservation = self.updater.$updateNote.sink { [weak self] in self?.updateNote = $0 }
         updatingObservation = self.updater.$isUpdating.sink { [weak self] in self?.isUpdating = $0 }
+        // A verified engine update applies to the next download.
+        engineObservation = self.updater.$installedEngine.sink { [weak self] url in
+            if let url { self?.environment.downloaderURL = url }
+        }
     }
 
     func restoreDownloadsFolder(from store: DownloadFolderStore) {
@@ -127,12 +142,6 @@ final class DownloadManager: ObservableObject {
     /// Error from the very first attempt — what the user is told at the end.
     private var firstErrorLine = ""
 
-    /// A realistic browser UA — many hosts (and YouTube) return
-    /// 403 Forbidden to requests that look like a bare script.
-    private static let browserUserAgent =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
-        + "(KHTML, like Gecko) Version/18.0 Safari/605.1.15"
-
     func beginSession() {
         session += 1
         if case .failed = phase { return } // Preserve explicit retry/new-link choice when reopening.
@@ -144,6 +153,9 @@ final class DownloadManager: ObservableObject {
         }
         clipboardURL = environment.readClipboardURL()
     }
+
+    /// False in development builds that use Homebrew instead of bundled helpers.
+    var engineIsBundled: Bool { environment.engine.isBundled }
 
     var canRetry: Bool {
         if case .failed = phase { return activeURL != nil }
@@ -208,9 +220,12 @@ final class DownloadManager: ObservableObject {
             phase = .failed("The download engine is updating. Wait for the update to finish, then try again.")
             return
         }
-        if let trialProblem { phase = .failed(trialProblem); return }
-        if trialExhausted {
-            phase = .failed("Your three free downloads are complete. Paid activation is not available in this build yet.")
+        let licensed = isLicensed()
+        if !licensed, let trialProblem { phase = .failed(trialProblem); return }
+        if !licensed, trialExhausted {
+            phase = .failed(purchaseAvailable
+                ? "Your three free downloads are used. Buy Droplet or enter your license key to keep downloading."
+                : "Your three free downloads are complete. Paid activation is not available in this build.")
             return
         }
         if let destinationProblem {
@@ -218,7 +233,7 @@ final class DownloadManager: ObservableObject {
             return
         }
 
-        if let trialAccounting {
+        if !licensed, let trialAccounting {
             let job = UUID()
             do { try trialAccounting.reserve(jobID: job); trialJobID = job }
             catch {
@@ -230,7 +245,7 @@ final class DownloadManager: ObservableObject {
         isCancelled = false
         result = nil
         firstErrorLine = ""
-        attempts = Self.makeAttempts(for: url, consent: consent)
+        attempts = Self.makeAttempts(for: validated, consent: consent)
         runAttempt(0)
     }
 
@@ -298,13 +313,13 @@ final class DownloadManager: ObservableObject {
             "--fragment-retries", "2",
             "--extractor-retries", "2",
             "--retry-sleep", "1",
-            // realistic browser headers — many hosts 403 script-looking requests
-            "--user-agent", Self.browserUserAgent,
-            "--referer", url.absoluteString,
+            // yt-dlp's maintained per-site headers are used as-is; a fixed
+            // browser user agent ages and breaks client-specific requests.
             "-f", DownloadFormatPolicy.selector,
             "--merge-output-format", "mp4",
             "-o", workspace.outputTemplate,
-        ] + outputProtocol.arguments + attempt.extra + [url.absoluteString]
+        ] + (environment.jsRuntimeURL.map { ["--js-runtimes", "deno:" + $0.path] } ?? [])
+          + outputProtocol.arguments + attempt.extra + [url.absoluteString]
 
         let pipe = Pipe()
         process.standardOutput = pipe

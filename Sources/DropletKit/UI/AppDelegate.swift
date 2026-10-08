@@ -9,6 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var settingsWindow: NSWindow?
     private var welcomeWindow: NSWindow?
     private let folderStore = DownloadFolderStore(defaults: .standard)
+    private let configuration = ProductConfiguration.live
+    /// Created with the download state, only by the menu-bar owner.
+    private var license: LicenseController?
+    private lazy var loginItem = LoginItemController()
     private let popover = NSPopover()
     private let managerStorage = OwnershipBoundResource<DownloadManager>()
     private var manager: DownloadManager {
@@ -86,6 +90,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return
         }
         activate()
+        warnIfNotInstalled()
+    }
+
+    /// Running from the disk image or a translocated copy breaks login items
+    /// and in-place updates. Ask once per launch; nothing is moved automatically.
+    private func warnIfNotInstalled() {
+        guard Bundle.main.object(forInfoDictionaryKey: "DropletIsPreview") as? Bool != true else { return }
+        let path = Bundle.main.bundlePath
+        guard path.hasPrefix("/Volumes/") || path.contains("/AppTranslocation/") else { return }
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "Move Droplet to your Applications folder"
+            alert.informativeText = "Droplet is running from the disk image or a temporary location. Quit Droplet, drag it into Applications, and open it from there so it can start at login and keep its settings."
+            alert.addButton(withTitle: "OK")
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
     }
 
     private func acquireMenuBarOwnership() -> Bool {
@@ -132,6 +153,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         #if DROPLET_PREVIEW
         recordPreviewLifecycle("activate-begin")
         #endif
+        let license = LicenseController.live(configuration: configuration)
+        self.license = license
+        manager.isLicensed = { [weak license] in license?.isLicensed ?? false }
+        manager.purchaseAvailable = license.isConfigured
+        Task { await license.refreshIfDue() }
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
@@ -147,12 +173,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         let root = MainView(
             manager: manager,
+            license: license,
             onOpenDownloads: { [weak self] in self?.openDownloads() },
             onBrowserLogin: { [weak self] in self?.presentBrowserLogin() },
             onQuit: { [weak self] in self?.quitApp() },
             onClose: { [weak self] in self?.popover.performClose(nil) },
             onSettings: { [weak self] in self?.presentSettings() },
-            onOpenSavedFile: { [weak self] in self?.openSavedFile() }
+            onOpenSavedFile: { [weak self] in self?.openSavedFile() },
+            onBuy: { [weak self] in self?.openCheckout() }
         )
         #if DROPLET_PREVIEW
         let hostedRoot = root.modifier(PreviewAccessibilityModifier())
@@ -346,6 +374,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         } else if Date().timeIntervalSince(lastCloseAt) > 0.3 {
             manager.beginSession()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            // At most one provider check a day; a long-running menu-bar app
+            // would otherwise only validate at launch.
+            if let license { Task { await license.refreshIfDue() } }
         }
     }
 
@@ -445,16 +476,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             NSApp.activate(ignoringOtherApps: true)
             return
         }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 450, height: 560),
+        guard let license else { return }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 450, height: 600),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Droplet Settings"
         window.isReleasedWhenClosed = false
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
         window.contentViewController = NSHostingController(rootView: SettingsView(manager: manager,
+            license: license, loginItem: loginItem, links: configuration,
             onChooseFolder: { [weak self] in self?.chooseDownloadFolder() },
             onClose: { [weak window] in window?.close() },
-            onWelcome: { [weak self] in self?.presentWelcome() }, version: "\(version) (\(build))"))
+            onWelcome: { [weak self] in self?.presentWelcome() },
+            onBuy: { [weak self] in self?.openCheckout() },
+            onOpenLink: { _ = NSWorkspace.shared.open($0) },
+            onThirdPartyNotices: { [weak self] in self?.openThirdPartyNotices() },
+            version: "\(version) (\(build))"))
         settingsWindow = window
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -471,7 +508,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Welcome to Droplet"
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: WelcomeView(onContinue: { [weak window] in
+        window.contentViewController = NSHostingController(rootView: WelcomeView(
+            purchaseAvailable: license?.isConfigured ?? false, onContinue: { [weak window] in
             UserDefaults.standard.set(true, forKey: "welcomeSeen.v1")
             window?.close()
         }))
@@ -479,6 +517,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func openCheckout() {
+        guard let url = license?.checkoutURL else { presentSettings(); return }
+        popover.performClose(nil)
+        NSWorkspace.shared.open(url)
+    }
+
+    private func openThirdPartyNotices() {
+        guard let url = Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: nil),
+              NSWorkspace.shared.open(url) else {
+            let alert = NSAlert()
+            alert.messageText = "Third-party licenses are not included in this build"
+            alert.informativeText = "Release builds include the licenses of yt-dlp, FFmpeg and Deno in the app bundle."
+            alert.runModal()
+            return
+        }
     }
 
     private func chooseDownloadFolder() {
@@ -505,15 +560,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     // MARK: quitting — full shutdown, no background leftovers
 
-    /// There is a launchd LaunchAgent (~/Library/LaunchAgents/com.quentinthiessen.droplet.plist)
-    /// with KeepAlive=true that restarts this app ~2s after it exits.
-    /// Booting the job out tells launchd to stand down — quitting then REALLY quits.
-    /// (The agent reloads at next login, so autostart still works after reboot.)
+    /// Early development installs used a private LaunchAgent
+    /// (~/Library/LaunchAgents/com.quentinthiessen.droplet.plist) with
+    /// KeepAlive=true that restarts the app ~2s after it exits. Booting the job
+    /// out makes quitting really quit. Customer installs use the system
+    /// login-item service instead and never have this file.
     private func bootOutKeepAliveAgent() {
         // A side-by-side preview must never unload the user's installed app.
         guard Bundle.main.object(forInfoDictionaryKey: "DropletIsPreview") as? Bool != true else { return }
-        let uid = getuid()
         let label = Self.launchAgentLabel
+        guard FileManager.default.fileExists(atPath: NSHomeDirectory() + "/Library/LaunchAgents/\(label).plist") else { return }
+        let uid = getuid()
         let commands: [[String]] = [
             ["bootout", "gui/\(uid)/\(label)"],
             ["remove", label],

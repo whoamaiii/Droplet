@@ -82,7 +82,9 @@ final class DownloadLifecycleTests{
         expectEqual(h.processes.count, 2)
         expectEqual(h.processes[1].arguments?.last, original.absoluteString)
         let args = h.processes[1].arguments!
-        expectEqual(args[args.firstIndex(of: "--referer")! + 1], original.absoluteString)
+        // yt-dlp's own per-site headers are used; no frozen browser identity.
+        expectFalse(args.contains("--user-agent"))
+        expectFalse(args.contains("--referer"))
         manager.cancel()
     }
 
@@ -159,7 +161,8 @@ final class DownloadLifecycleTests{
         expectEqual(manager.updateNote, "Updating yt-dlp…")
         h.processes[0].finish(status: 1)
         await drainMainQueue()
-        expectEqual(manager.updateNote, "Update failed — try: brew upgrade yt-dlp")
+        expectEqual(manager.updateNote, "Engine update failed. Check your connection and try again later.")
+        expectEqual(h.engineStaging.discarded.count, 1, "A failed update discards its staged copy")
         h.clock.runMain()
         expectEqual(manager.updateNote, "")
     }

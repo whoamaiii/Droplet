@@ -9,13 +9,25 @@ struct DownloadEnvironment {
     var makeProcess: () -> Process = { Process() }
     var readClipboardURL: () -> URL? = { DownloadManager.readClipboardURL() }
     var downloadsFolder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
-    var downloaderURL = URL(fileURLWithPath: "/opt/homebrew/bin/yt-dlp")
-    var ffmpegDirectory = URL(fileURLWithPath: "/opt/homebrew/bin")
+    /// Bundled helpers in customer builds; Homebrew only in development builds.
+    var engine = EngineLocator.live
+    var downloaderURL: URL {
+        get { engine.downloader }
+        set { engine.downloader = newValue }
+    }
+    var ffmpegDirectory: URL {
+        get { engine.ffmpegDirectory }
+        set { engine.ffmpegDirectory = newValue }
+    }
+    var jsRuntimeURL: URL? {
+        get { engine.jsRuntime }
+        set { engine.jsRuntime = newValue }
+    }
     var processEnvironment: [String: String] {
         EngineProcessEnvironment.make(home: FileManager.default.homeDirectoryForCurrentUser,
             temporary: FileManager.default.temporaryDirectory, engine: downloaderURL, ffmpeg: ffmpegDirectory)
     }
-    var brewURL = URL(fileURLWithPath: "/opt/homebrew/bin/brew")
+    var engineStaging: any EngineStaging = UpdatedEngineStore.live
     var descendants: (pid_t) -> [pid_t] = { ProcessInspector.descendantPIDs(of: $0) }
     var processIdentity: (pid_t) -> ProcessIdentity? = { ProcessInspector.identity(of: $0) }
     var signal: (pid_t, Int32) -> Int32 = { Darwin.kill($0, $1) }

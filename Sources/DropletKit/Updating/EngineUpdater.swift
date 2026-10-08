@@ -1,14 +1,19 @@
 import Cocoa
 import Combine
 
-/// Development updater; customer engine delivery replaces Homebrew in WHO-238.
+/// Updates yt-dlp without Homebrew and without touching the signed bundle:
+/// a private copy is staged, updated by yt-dlp's own verified updater, and
+/// installed only after it reports a valid version.
 @MainActor
 final class EngineUpdater: ObservableObject {
     @Published private(set) var updateNote = ""
     @Published private(set) var isUpdating = false
-    private let environment: DownloadEnvironment
+    /// The engine downloads should use after a verified update.
+    @Published private(set) var installedEngine: URL?
+    private var environment: DownloadEnvironment
     private var updateTask: Process?
     private var updatePipe: Pipe?
+    private var staged: URL?
     private var versionProbe: EngineVersionProbe?
     private var deadline: DispatchWorkItem?
     private var dismiss: DispatchWorkItem?
@@ -26,6 +31,7 @@ final class EngineUpdater: ObservableObject {
         stopUpdate()
         for cleanup in cleanups { cleanup.run() }
         cleanups.removeAll()
+        discardStaged()
         updateNote = ""
         isUpdating = false
     }
@@ -36,15 +42,24 @@ final class EngineUpdater: ObservableObject {
         let token = generation
         dismiss?.cancel()
         deadline?.cancel()
+        let staged: URL
+        do { staged = try environment.engineStaging.prepareStaging(from: environment.downloaderURL) }
+        catch EngineStagingError.unsupported {
+            updateNote = "This development build uses Homebrew. Run: brew upgrade yt-dlp"
+            scheduleDismiss(token: token)
+            return
+        } catch {
+            updateNote = "Couldn't prepare the engine update. Check free disk space and try again."
+            scheduleDismiss(token: token)
+            return
+        }
+        self.staged = staged
         isUpdating = true
         updateNote = "Updating yt-dlp…"
         let process = environment.makeProcess()
-        process.executableURL = environment.brewURL
-        process.arguments = ["upgrade", "yt-dlp"]
-        var env = environment.processEnvironment
-        env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
-        env["HOMEBREW_NO_ENV_HINTS"] = "1"
-        process.environment = env
+        process.executableURL = staged
+        process.arguments = ["--ignore-config", "--no-plugin-dirs", "--update-to", "stable"]
+        process.environment = environment.processEnvironment
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
@@ -61,18 +76,19 @@ final class EngineUpdater: ObservableObject {
                 self.updatePipe = nil
                 if finished.terminationStatus == 0 {
                     self.updateNote = "Checking engine version…"
-                    let probe = EngineVersionProbe(environment: self.environment)
+                    let probe = EngineVersionProbe(environment: self.environment, executable: staged)
                     self.versionProbe = probe
                     probe.start { [weak self, weak probe] version in
                         guard let self, let probe, self.generation == token, self.versionProbe === probe else { return }
                         self.versionProbe = nil
                         self.isUpdating = false
-                        self.updateNote = version.map { "yt-dlp \($0) ✓" } ?? "Update finished; version check unavailable."
+                        self.finishInstall(version: version)
                         self.scheduleDismiss(token: token)
                     }
                 } else {
                     self.isUpdating = false
-                    self.updateNote = "Update failed — try: brew upgrade yt-dlp"
+                    self.discardStaged()
+                    self.updateNote = "Engine update failed. Check your connection and try again later."
                     self.scheduleDismiss(token: token)
                 }
             }
@@ -84,6 +100,7 @@ final class EngineUpdater: ObservableObject {
             let timer = DispatchWorkItem { [weak self, weak process] in
                 guard let self, let process, self.generation == token, self.updateTask === process else { return }
                 self.stopUpdate()
+                self.discardStaged()
                 self.updateNote = "Engine update timed out after 15 minutes. Try again later."
                 self.scheduleDismiss(token: token)
             }
@@ -92,9 +109,35 @@ final class EngineUpdater: ObservableObject {
         } catch {
             pipe.fileHandleForReading.readabilityHandler = nil
             isUpdating = false
+            discardStaged()
             updateNote = "Couldn't run the engine updater."
             scheduleDismiss(token: token)
         }
+    }
+
+    private func finishInstall(version: String?) {
+        guard let staged else { return }
+        self.staged = nil
+        guard let version else {
+            environment.engineStaging.discard(staged: staged)
+            updateNote = "The update could not be verified, so it was not installed."
+            return
+        }
+        do {
+            let installed = try environment.engineStaging.install(staged: staged, version: version)
+            environment.downloaderURL = installed
+            installedEngine = installed
+            updateNote = "yt-dlp \(version) ✓"
+        } catch {
+            environment.engineStaging.discard(staged: staged)
+            updateNote = "The update could not be installed. Check free disk space and try again."
+        }
+    }
+
+    private func discardStaged() {
+        guard let staged else { return }
+        self.staged = nil
+        environment.engineStaging.discard(staged: staged)
     }
 
     private func scheduleDismiss(token: Int) {

@@ -119,12 +119,14 @@ struct PressableButtonStyle: ButtonStyle {
 struct MainView: View {
     @DropletReducedMotion private var reduceMotion
     @ObservedObject var manager: DownloadManager
+    @ObservedObject var license: LicenseController
     var onOpenDownloads: () -> Void
     var onBrowserLogin: () -> Void
     var onQuit: () -> Void
     var onClose: () -> Void
     var onSettings: () -> Void = {}
     var onOpenSavedFile: () -> Void = {}
+    var onBuy: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 0) {
@@ -205,11 +207,17 @@ struct MainView: View {
     private var idleView: some View {
         VStack(spacing: 14) {
             linkPreview
-            if let remaining = manager.trialRemaining {
-                Button(remaining == 0 ? "Free trial complete · Details" : "\(remaining) of 3 free downloads left", action: onSettings)
+            if !license.isLicensed, let remaining = manager.trialRemaining {
+                Button(remaining > 0 ? "\(remaining) of 3 free downloads left"
+                       : license.isConfigured ? "Free trial complete · Buy or enter key" : "Free trial complete · Details",
+                       action: onSettings)
                     .font(.system(size: 11, weight: .medium)).buttonStyle(.link)
             }
-            if let problem = manager.trialProblem {
+            if license.needsOnlineCheck {
+                Text("Connect to the internet so Droplet can confirm your license.")
+                    .font(.caption).foregroundStyle(.orange).multilineTextAlignment(.center)
+            }
+            if !license.isLicensed, let problem = manager.trialProblem {
                 Text(problem).font(.caption).foregroundStyle(.red)
             }
 
@@ -359,7 +367,7 @@ struct MainView: View {
                     .font(.system(size: 12, weight: .semibold))
             }
             .buttonStyle(.link)
-            if let problem = manager.trialProblem {
+            if !license.isLicensed, let problem = manager.trialProblem {
                 Text(problem).font(.caption).foregroundStyle(.red)
             }
             Button("New download") { manager.useNewClipboardLink() }
@@ -389,6 +397,37 @@ struct MainView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
                 .padding(.horizontal, 2)
+            if manager.needsLicense && license.isConfigured {
+                purchaseActions
+            } else {
+                retryActions
+            }
+        }
+    }
+
+    private var purchaseActions: some View {
+        VStack(spacing: 10) {
+            if license.checkoutURL != nil {
+                Button(action: onBuy) {
+                    Label("Buy Droplet", systemImage: "cart")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(LinearGradient(colors: [Color(red: 0.06, green: 0.38, blue: 0.72), .indigo],
+                                                                  startPoint: .leading, endPoint: .trailing)))
+                }
+                .buttonStyle(PressableButtonStyle())
+                .keyboardShortcut(.defaultAction)
+            }
+            Button("Enter license key…", action: onSettings)
+                .font(.system(size: 11))
+                .buttonStyle(.link)
+        }
+    }
+
+    private var retryActions: some View {
+        VStack(spacing: 10) {
             Button {
                 withAnimation { manager.retryFromFailure() }
             } label: {

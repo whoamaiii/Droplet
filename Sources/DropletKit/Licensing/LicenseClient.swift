@@ -9,9 +9,11 @@ enum LicenseValidation: Equatable {
     case rejected
 }
 
+/// Adapters return the provider's normalized evidence; `LicenseEvidenceValidator`
+/// decides whether it grants access to this product on this Mac.
 protocol LicenseClient {
-    func activate(key: String) async throws -> LicenseInstance
-    func validate(key: String, instance: LicenseInstance) async throws -> LicenseValidation
+    func activate(key: String) async throws -> LicenseEvidence
+    func validate(key: String, instance: LicenseInstance) async throws -> LicenseEvidence
     func deactivate(key: String, instance: LicenseInstance) async throws
 }
 
@@ -23,15 +25,16 @@ enum LicenseError: Error, Equatable {
     case wrongProduct
     case wrongInstance
     case expired
-    case rejected
+    /// The provider authoritatively refused the key or this activation.
+    case rejected(String?)
     case secureStorage(Int32)
 }
 
 /// No provider/store/product is approved or configured in this build. This
 /// client deliberately cannot grant access, even for a plausible-looking key.
 struct UnconfiguredLicenseClient: LicenseClient {
-    func activate(key: String) async throws -> LicenseInstance { throw LicenseError.notConfigured }
-    func validate(key: String, instance: LicenseInstance) async throws -> LicenseValidation { throw LicenseError.notConfigured }
+    func activate(key: String) async throws -> LicenseEvidence { throw LicenseError.notConfigured }
+    func validate(key: String, instance: LicenseInstance) async throws -> LicenseEvidence { throw LicenseError.notConfigured }
     func deactivate(key: String, instance: LicenseInstance) async throws { throw LicenseError.notConfigured }
 }
 
@@ -41,10 +44,17 @@ struct LicenseProduct: Codable, Equatable {
     let productID: String
     let variantID: String
 
+    /// The variant is optional: an empty expected variant accepts every
+    /// variant (for example regular and discounted prices) of the product.
     var isConfigured: Bool {
-        [providerID, storeID, productID, variantID].allSatisfy {
+        [providerID, storeID, productID].allSatisfy {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
+    }
+
+    func accepts(_ actual: LicenseProduct) -> Bool {
+        isConfigured && providerID == actual.providerID && storeID == actual.storeID
+            && productID == actual.productID && (variantID.isEmpty || variantID == actual.variantID)
     }
 }
 
@@ -63,7 +73,7 @@ struct LicenseEvidenceValidator {
 
     func validate(_ evidence: LicenseEvidence, expectedInstance: LicenseInstance?, now: Date) throws -> LicenseValidation {
         guard expectedProduct.isConfigured else { throw LicenseError.notConfigured }
-        guard evidence.product == expectedProduct else { throw LicenseError.wrongProduct }
+        guard expectedProduct.accepts(evidence.product) else { throw LicenseError.wrongProduct }
         guard !evidence.instance.instanceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw LicenseError.invalidResponse
         }

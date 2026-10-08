@@ -5,6 +5,7 @@ import Foundation
 @MainActor
 final class EngineVersionProbe {
     private let environment: DownloadEnvironment
+    private let executable: URL
     private var process: Process?
     private var pipe: Pipe?
     private var deadline: DispatchWorkItem?
@@ -12,7 +13,11 @@ final class EngineVersionProbe {
     private var output = ""
     private var invalidOutput = false
 
-    init(environment: DownloadEnvironment) { self.environment = environment }
+    /// `executable` defaults to the active engine; the updater probes its staged copy.
+    init(environment: DownloadEnvironment, executable: URL? = nil) {
+        self.environment = environment
+        self.executable = executable ?? environment.downloaderURL
+    }
 
     func start(completion: @escaping (String?) -> Void) {
         guard process == nil else { return }
@@ -20,7 +25,7 @@ final class EngineVersionProbe {
         output = ""
         invalidOutput = false
         let child = environment.makeProcess()
-        child.executableURL = environment.downloaderURL
+        child.executableURL = executable
         child.environment = environment.processEnvironment
         child.arguments = ["--ignore-config", "--no-plugin-dirs", "--version"]
         let pipe = Pipe()

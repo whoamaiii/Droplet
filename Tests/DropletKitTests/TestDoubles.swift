@@ -123,9 +123,33 @@ final class TestClock {
     }
 }
 
+/// Records engine staging without touching Application Support.
+final class FakeEngineStaging: EngineStaging {
+    var unsupported = false
+    var failInstall = false
+    private(set) var staged: [URL] = []
+    private(set) var installed: [(URL, String)] = []
+    private(set) var discarded: [URL] = []
+    let installedURL = URL(fileURLWithPath: "/fake/Application Support/Droplet/Engine/yt-dlp")
+
+    func prepareStaging(from current: URL) throws -> URL {
+        if unsupported { throw EngineStagingError.unsupported }
+        let url = URL(fileURLWithPath: "/fake/staging-\(staged.count)/yt-dlp")
+        staged.append(url)
+        return url
+    }
+    func install(staged: URL, version: String) throws -> URL {
+        if failInstall { throw EngineStagingError.unsafeLocation }
+        installed.append((staged, version))
+        return installedURL
+    }
+    func discard(staged: URL) { discarded.append(staged) }
+}
+
 @MainActor
 final class DownloadHarness {
     let clock = TestClock()
+    let engineStaging = FakeEngineStaging()
     let folder: URL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     init() { try! FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false) }
     deinit { try? FileManager.default.removeItem(at: folder) }
@@ -161,6 +185,7 @@ final class DownloadHarness {
         }
         environment.playSound = { _ in }
         environment.clock = clock.runtime
+        environment.engineStaging = engineStaging
         return environment
     }
 }
