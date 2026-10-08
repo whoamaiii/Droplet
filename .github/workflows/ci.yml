@@ -1,0 +1,58 @@
+name: CI
+
+# The repository is private, so macOS runner minutes are billed. Runs are
+# limited to code changes and cancelled when a newer push supersedes them.
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'Resources/**'
+      - 'scripts/**'
+      - 'Package.swift'
+      - 'Info.plist'
+      - 'build.sh'
+      - '.github/workflows/ci.yml'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Fixture encoder (Homebrew FFmpeg, used only by the checks)
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_INSTALL_CLEANUP: '1'
+        run: brew install ffmpeg
+
+      - name: Shell and Python syntax
+        run: |
+          for f in build.sh scripts/*.sh; do bash -n "$f"; done
+          python3 -m py_compile scripts/*.py
+
+      - name: Build app (release, arm64)
+        run: swift build --configuration release --product Droplet --arch arm64
+
+      - name: Build app (release, x86_64)
+        run: swift build --configuration release --product Droplet --arch x86_64
+
+      - name: Swift checks
+        run: ./scripts/test.sh
+
+      - name: Distribution checks
+        run: python3 -m unittest discover -s Tests/Distribution -v
+
+      - name: Local bundle build
+        run: DROPLET_BUILD_ROOT="$RUNNER_TEMP/builds" ./build.sh
