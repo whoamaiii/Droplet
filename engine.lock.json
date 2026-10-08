@@ -1,0 +1,36 @@
+{
+  "deno": {
+    "enabled": true,
+    "license": {"sha256": "", "url": ""},
+    "source": "",
+    "version": "",
+    "arm64": {"sha256": "", "url": ""},
+    "x86_64": {"sha256": "", "url": ""}
+  },
+  "ffmpeg": {
+    "download": {
+      "arm64": {
+        "ffmpeg": "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip",
+        "ffprobe": "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffprobe.zip"
+      },
+      "x86_64": {
+        "ffmpeg": "https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/release/ffmpeg.zip",
+        "ffprobe": "https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/release/ffprobe.zip"
+      }
+    },
+    "license": {"sha256": "", "url": ""},
+    "license_url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/COPYING.GPLv3",
+    "note": "These prebuilt FFmpeg binaries are GPL builds. Droplet only remuxes (no encoding), so an LGPL build also works; see docs/release/RELEASE.md before choosing.",
+    "source": "https://ffmpeg.org/download.html#releases",
+    "version": "",
+    "arm64": {"ffmpeg": {"sha256": "", "url": ""}, "ffprobe": {"sha256": "", "url": ""}},
+    "x86_64": {"ffmpeg": {"sha256": "", "url": ""}, "ffprobe": {"sha256": "", "url": ""}}
+  },
+  "yt-dlp": {
+    "license": {"sha256": "", "url": ""},
+    "sha256": "",
+    "source": "",
+    "url": "",
+    "version": ""
+  }
+}

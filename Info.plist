@@ -8,6 +8,8 @@
 	<string>Droplet</string>
 	<key>CFBundleExecutable</key>
 	<string>Droplet</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>local.quentinthiessen.droplet</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -20,11 +22,31 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>DropletBundledEngineVersion</key>
+	<string></string>
+	<key>DropletCheckoutURL</key>
+	<string></string>
+	<key>DropletLicenseProductID</key>
+	<string></string>
+	<key>DropletLicenseStoreID</key>
+	<string></string>
+	<key>DropletLicenseVariantID</key>
+	<string></string>
+	<key>DropletPrivacyURL</key>
+	<string></string>
+	<key>DropletSupportURL</key>
+	<string></string>
+	<key>DropletWebsiteURL</key>
+	<string></string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string></string>
 </dict>
 </plist>

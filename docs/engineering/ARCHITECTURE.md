@@ -48,3 +48,25 @@ WHO-224 acceptance and actual app/Finder evidence are recorded in [verification]
 WHO-225 removes automatic cookie discovery/fallback. BrowserLoginConsent binds an explicit browser/profile choice to one URL and one run; the dedicated form performs no IO before consent. See [verification](WHO-225-verification.md), including real engine parsing and native download evidence.
 
 WHO-226 isolates the engine environment, validates all URL entry points, classifies retryable failures and bounds engine/version/update operations. See [verification](WHO-226-verification.md) for exact deadlines, actual app checks and remaining release gates.
+
+## Release architecture (October 2026)
+
+- `Infrastructure/EngineLocator.swift` resolves the engine: `Contents/Helpers`
+  (yt-dlp, ffmpeg, ffprobe, deno) in release builds; a newer private update in
+  `~/Library/Application Support/Droplet/Engine` only while it is newer than the
+  bundled version recorded in `DropletBundledEngineVersion`; Homebrew only in
+  development builds. The bundled Deno is passed with `--js-runtimes`.
+- `Updating/EngineUpdater.swift` stages a private copy, runs yt-dlp's own
+  `--update-to stable`, verifies the reported version and installs atomically.
+  It never writes into the signed bundle and never runs Homebrew.
+- `Licensing/LemonSqueezyLicenseClient.swift` speaks Lemon Squeezy's public
+  License API. `Licensing/LicenseController.swift` owns the policy: product
+  binding, Keychain storage, daily validation, 30-day offline grace, and removal
+  only on authoritative provider answers. `DownloadManager.isLicensed` bypasses
+  the trial gate; the trial itself is unchanged.
+- `Licensing/ProductConfiguration.swift` reads store IDs and links from
+  `Info.plist`; `scripts/release.sh` writes them from `release.env`.
+- `scripts/fetch_engine.py` assembles helpers from `engine.lock.json`
+  (SHA-256 pinned); `scripts/release.sh` builds universal, signs with the
+  hardened runtime (`Resources/Entitlements/`), notarizes, staples and makes
+  the DMG. See [the release guide](../release/RELEASE.md).

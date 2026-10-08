@@ -13,9 +13,18 @@ requires your explicit approval for that download.
 - Settings (gear icon or Command-comma) lets you choose a save folder and view
   the version. A missing saved folder requires an explicit new choice.
 - Getting started explains the menu-bar workflow; decorative movement respects
-  macOS Reduce Motion. Three successfully saved videos are available in the local trial; failed/cancelled attempts do not count. Paid activation is not configured.
-- Powered by `yt-dlp` + `ffmpeg` (currently Homebrew). Site compatibility varies;
-  a tested customer support matrix is still part of the release work.
+  macOS Reduce Motion.
+- Three successfully saved videos are free; failed/cancelled attempts do not
+  count. After that a one-time license (Lemon Squeezy) unlocks unlimited
+  downloads. Settings has Buy, Activate, Check license and Deactivate this Mac.
+- Powered by `yt-dlp`, FFmpeg and Deno, bundled inside the app in release
+  builds (no Homebrew needed). The update button updates yt-dlp in place.
+  Site compatibility varies.
+- Optional **Open Droplet at login** in Settings (system login items).
+
+**Publishing:** see [docs/release/RELEASE.md](docs/release/RELEASE.md) for the
+Apple Developer ID, Lemon Squeezy, engine pinning, signing/notarization and
+customer test checklist. `./scripts/release.sh` produces the notarized DMG.
 
 ## Development and local verification
 
@@ -32,6 +41,12 @@ From the project directory:
 python3 -m unittest discover -s Tests/Distribution -v
 ./build.sh
 ```
+
+Development builds use Homebrew's `yt-dlp`, `ffmpeg` and (for YouTube) `deno`
+from `/opt/homebrew/bin` or `/usr/local/bin`. To try the bundled-engine path,
+assemble helpers with `python3 scripts/fetch_engine.py --output /tmp/helpers
+--notices /tmp/notices` and build with `DROPLET_ENGINE_DIR=/tmp/helpers ./build.sh`.
+The swift checks generate fixture videos with Homebrew FFmpeg.
 
 The build writes a new **local, ad-hoc-signed** app beneath `~/Library/Developer/Droplet/Builds/`
 and prints its path. It does not install over `~/Applications/Droplet.app`,
@@ -78,14 +93,15 @@ ignore `--smoke-test` and `--smoke-update`. A preview `--smoke-test` requires an
 explicit `--smoke-url=<url>` and optionally `--smoke-quit=<seconds>` (default 2.5).
 It runs a real download, then invokes normal cleanup. Use permitted local fixture
 media; no public video is downloaded by default. `--smoke-update` invokes the real
-development Homebrew update action and should not be used as a harmless UI test.
+engine update action (network access; a no-op message on Homebrew development
+engines) and should not be used as a harmless UI test.
 
-**Commercialization status:** the local three-download quota is implemented and tested, including process-crash recovery and instance ownership. It is not tamper-proof or verified against power loss. Paid activation remains unavailable; license provider configuration, bundled engine delivery and public signing remain in [the launch plan](docs/launch/LAUNCH-PLAN.md). See [30 September verification](docs/engineering/2026-09-30-takeover-verification.md) for current evidence and UI limitations.
+**Commercialization status:** the local three-download quota is implemented and tested, including process-crash recovery and instance ownership. It is not tamper-proof or verified against power loss. License activation is implemented against Lemon Squeezy's License API and enabled when a release supplies store/product IDs (`release.env`); development builds show "Purchasing isn't set up in this build". See [the release guide](docs/release/RELEASE.md) and [the launch plan](docs/launch/LAUNCH-PLAN.md).
 
 ## Start automatically at login
 
-System Settings → General → Login Items → **+** → add
-`~/Applications/Droplet.app`.
+Settings → **Open Droplet at login** registers Droplet as a system login item
+(visible in System Settings → General → Login Items).
 
 ## Notes
 
@@ -93,15 +109,20 @@ System Settings → General → Login Items → **+** → add
   ("Droplet would like to access files in your Downloads folder").
   Grant access only if you want Droplet to save there. macOS may ask again
   after permission, signature or installation changes.
-- If you move Homebrew, update the engine paths in `Sources/DropletKit/Infrastructure/DownloadEnvironment.swift`
-  (`/opt/homebrew/bin/yt-dlp`) and rebuild.
+- Engine lookup order: `Droplet.app/Contents/Helpers` (release builds), a newer
+  in-app update in `~/Library/Application Support/Droplet/Engine`, then Homebrew
+  (`/opt/homebrew/bin`, `/usr/local/bin`) for development builds. See
+  `Sources/DropletKit/Infrastructure/EngineLocator.swift`.
 
 ## Keeping it working (important!)
 
 Sites can change their download behavior. An engine update can help with some
 failures; 403 or login errors can also mean the site does not permit downloading.
-The current development updater still uses Homebrew; replacing it is tracked in
-the launch plan.
+The update button copies the current yt-dlp to a private folder, lets yt-dlp's
+own updater fetch the latest stable release, checks the version and only then
+switches to it. The signed app bundle is never modified, and a newer bundled
+engine from an app update takes precedence. Development builds that use
+Homebrew are updated with `brew upgrade yt-dlp`.
 
 Ordinary downloads never discover browser profiles or import browser cookies.
 They do not require Full Disk Access. User yt-dlp configuration, plugins and netrc
@@ -124,15 +145,11 @@ preserve this separation. Authentication never guarantees a site allows download
 ## Quitting
 
 The **"Quit Droplet — stop everything"** button does a *complete* shutdown:
-kills the active download and cleans up only processes owned by Droplet,
-boots out the launchd keep-alive agent (`com.quentinthiessen.droplet`) so
-nothing resurrects it through that loaded job, and exits. Current process and
-delegate checks are documented in the engineering reports; real login-service
-migration and broader lifecycle checks remain tracked release tasks.
-
-The launchd agent lives in `~/Library/LaunchAgents/com.quentinthiessen.droplet.plist`
-(it auto-starts Droplet at login, with KeepAlive). Quitting boots it out until
-the next login. To remove the auto-start permanently:
+kills the active download and cleans up only processes owned by Droplet, and
+exits. If the old development KeepAlive agent
+(`~/Library/LaunchAgents/com.quentinthiessen.droplet.plist`) exists, quitting
+also boots it out so it cannot resurrect the app. Customer installs never have
+that agent; they use the Open at login setting. To remove the old agent permanently:
 
 ```bash
 launchctl bootout gui/$(id -u)/com.quentinthiessen.droplet
@@ -146,7 +163,8 @@ link** reads a replacement link without starting it automatically. Browser-login
 approval is never reused by an ordinary retry.
 
 Droplet ignores external yt-dlp configuration/plugins and inherited proxy,
-Python-path and certificate overrides. It uses controlled engine/FFmpeg paths.
+Python-path and certificate overrides. It uses controlled engine/FFmpeg paths
+and yt-dlp's own per-site request headers.
 Network requests have a 15-second socket timeout and at most two engine retries
 per network/fragment/extractor operation, with a one-second retry delay. Only
 recognized temporary network errors can use the additional public YouTube
@@ -158,6 +176,5 @@ a processing-stage change stops the job. Each attempt also has a six-hour limit.
 A progressing transfer with unknown total size still counts as active. Timeouts
 show an error and allow an explicit retry; they never count as a saved video.
 
-The development Homebrew updater has a fifteen-minute limit; its asynchronous
-version query has a five-second limit. Customer-ready bundled updates remain a
-separate launch task.
+The engine update has a fifteen-minute limit; its asynchronous version query
+has a five-second limit.
