@@ -50,11 +50,15 @@ def download(url, destination):
         raise EngineError(f"refusing non-HTTPS URL: {url}")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     partial = destination.with_name(destination.name + ".partial")
-    with urllib.request.urlopen(request, timeout=120) as response, open(partial, "wb") as out:
-        final = response.geturl()
-        if not (final.startswith("https://") or final.startswith("file://")):
-            raise EngineError(f"{url} redirected to non-HTTPS {final}")
-        shutil.copyfileobj(response, out)
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response, open(partial, "wb") as out:
+            final = response.geturl()
+            if not (final.startswith("https://") or final.startswith("file://")):
+                raise EngineError(f"{url} redirected to non-HTTPS {final}")
+            shutil.copyfileobj(response, out)
+    except OSError as error:
+        partial.unlink(missing_ok=True)
+        raise EngineError(f"download failed for {url}: {error}") from error
     partial.replace(destination)
     return final
 
@@ -193,7 +197,7 @@ def pin(lock, args):
         raw = f"https://raw.githubusercontent.com/yt-dlp/yt-dlp/{tag}"
         try:  # The standalone build bundles third-party code; prefer its full notice.
             license_entry = pin_url(f"{raw}/THIRD_PARTY_LICENSES.txt")
-        except OSError:
+        except EngineError:
             license_entry = pin_url(f"{raw}/LICENSE")
         lock["yt-dlp"] = dict(lock.get("yt-dlp", {}), version=tag, **entry, license=license_entry,
                               source=f"https://github.com/yt-dlp/yt-dlp/tree/{tag}")

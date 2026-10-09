@@ -12,6 +12,18 @@ That command downloads Droplet, checks its SHA-256 fingerprint, puts it in
 Applications and opens it. There are no "unidentified developer" warnings.
 Updating is the same line again.
 
+## Quick start: one command on your Mac
+
+```bash
+./scripts/first-release.sh
+```
+
+It does steps 1–3 below for you: checks the developer tools, runs the
+checks, creates and backs up the free signing certificate, pins the engine,
+asks a few questions to write `release.env`, builds `dist/`, and offers to
+install the result on your Mac. Run it again any time; finished steps are
+skipped. Then upload (step 4) and test (step 5).
+
 ## Why the Terminal install (and no US$99 Apple account)
 
 macOS only applies its "Apple could not verify this app is free of malware"

@@ -37,7 +37,9 @@ Running the same line again updates Droplet. A DMG is also published for
 people who prefer a normal download (they allow it once with System Settings →
 Privacy & Security → Open Anyway).
 
-**Publishing:** [docs/release/RELEASE.md](docs/release/RELEASE.md) covers the
+**Publishing:** on your Mac, run `./scripts/first-release.sh`. It sets up
+signing, pins the engine, asks for your settings and builds the release.
+[docs/release/RELEASE.md](docs/release/RELEASE.md) covers the
 free signing certificate, Lemon Squeezy, the download page text, engine
 pinning, and the customer test checklist. `./scripts/release.sh` builds the
 zip, `install.sh` and DMG into `dist/` for upload. A paid Developer ID can be
