@@ -1,13 +1,32 @@
 {
   "deno": {
+    "arm64": {
+      "sha256": "5cd46d6268f6f78f5d88bdc7159d20bd44cdaa4b3303474839f87ec6fe7ae25c",
+      "url": "https://github.com/denoland/deno/releases/download/v2.9.7/deno-aarch64-apple-darwin.zip"
+    },
     "enabled": true,
-    "license": {"sha256": "", "url": ""},
-    "source": "",
-    "version": "",
-    "arm64": {"sha256": "", "url": ""},
-    "x86_64": {"sha256": "", "url": ""}
+    "license": {
+      "sha256": "f62497fffecc0852960c8d3e6934b9db86d16396e9b604072e923892cae3a588",
+      "url": "https://raw.githubusercontent.com/denoland/deno/v2.9.7/LICENSE.md"
+    },
+    "source": "https://github.com/denoland/deno/tree/v2.9.7",
+    "version": "2.9.7",
+    "x86_64": {
+      "sha256": "95daaff11c116a52ad54785e7914c8e9c9cdcaba793c5ed929c74ca2d8e6259a",
+      "url": "https://github.com/denoland/deno/releases/download/v2.9.7/deno-x86_64-apple-darwin.zip"
+    }
   },
   "ffmpeg": {
+    "arm64": {
+      "ffmpeg": {
+        "sha256": "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924",
+        "url": "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip"
+      },
+      "ffprobe": {
+        "sha256": "fcbe839537485eaee7a7a8bc5cbc0f90d53617e80943e8a5b2e31cb851197ea6",
+        "url": "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffprobe.zip"
+      }
+    },
     "download": {
       "arm64": {
         "ffmpeg": "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip",
@@ -18,19 +37,33 @@
         "ffprobe": "https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/release/ffprobe.zip"
       }
     },
-    "license": {"sha256": "", "url": ""},
+    "license": {
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/COPYING.GPLv3"
+    },
     "license_url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/COPYING.GPLv3",
     "note": "These prebuilt FFmpeg binaries are GPL builds. Droplet only remuxes (no encoding), so an LGPL build also works; see docs/release/RELEASE.md before choosing.",
     "source": "https://ffmpeg.org/download.html#releases",
     "version": "",
-    "arm64": {"ffmpeg": {"sha256": "", "url": ""}, "ffprobe": {"sha256": "", "url": ""}},
-    "x86_64": {"ffmpeg": {"sha256": "", "url": ""}, "ffprobe": {"sha256": "", "url": ""}}
+    "x86_64": {
+      "ffmpeg": {
+        "sha256": "7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4",
+        "url": "https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip"
+      },
+      "ffprobe": {
+        "sha256": "2322438ed2f6319a691291b247d09c69dcaa3a982460d1f269a7e1af335cfdfd",
+        "url": "https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffprobe.zip"
+      }
+    }
   },
   "yt-dlp": {
-    "license": {"sha256": "", "url": ""},
-    "sha256": "",
-    "source": "",
-    "url": "",
-    "version": ""
+    "license": {
+      "sha256": "472aefe951c7db35e1657c1d13fd337140511ed6f2b329205105ad441c5a02b7",
+      "url": "https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.08.19/THIRD_PARTY_LICENSES.txt"
+    },
+    "sha256": "0f192b7ec147ab6288885d6351d9ab67367640029b4377576ef46dd79cf7b202",
+    "source": "https://github.com/yt-dlp/yt-dlp/tree/2026.08.19",
+    "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_macos",
+    "version": "2026.08.19"
   }
 }
