@@ -333,6 +333,9 @@ final class DownloadManager: ObservableObject {
         process.arguments = arguments
 
         let pipe = Pipe()
+        // Never the terminal: yt-dlp and FFmpeg would be stopped (SIGTTIN)
+        // if Droplet was started from a shell and they tried to read it.
+        process.standardInput = FileHandle.nullDevice
         process.standardOutput = pipe
         process.standardError = pipe
 

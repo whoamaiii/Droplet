@@ -40,8 +40,8 @@ note "OK ($(swift --version 2>/dev/null | head -1))"
 
 step "2/6 Droplet's checks"
 if [ -x /opt/homebrew/bin/ffmpeg ]; then
-    ./scripts/test.sh || fail "a check failed. Send the output above to whoever helps you with Droplet."
-    python3 -m unittest discover -s Tests/Distribution || fail "a distribution check failed (output above)."
+    ./scripts/test.sh </dev/null || fail "a check failed. Send the output above to whoever helps you with Droplet."
+    python3 -m unittest discover -s Tests/Distribution </dev/null || fail "a distribution check failed (output above)."
 else
     note "Skipped: the checks make test videos with Homebrew FFmpeg (/opt/homebrew/bin/ffmpeg)."
     note "The release build below still compiles everything."

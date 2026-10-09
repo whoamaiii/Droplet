@@ -8,11 +8,12 @@ struct ProcessOwnershipTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
         defer { try? FileManager.default.removeItem(at: folder) }
         let helper = folder.appendingPathComponent("owned-engine")
-        try Data("#!/bin/sh\ntrap '' TERM\n/opt/homebrew/bin/ffmpeg -v error -re -f lavfi -i color=c=blue:s=16x16:r=1 -t 30 -f null - &\nwait\n".utf8).write(to: helper)
+        try Data("#!/bin/sh\ntrap '' TERM\n/opt/homebrew/bin/ffmpeg -nostdin -v error -re -f lavfi -i color=c=blue:s=16x16:r=1 -t 30 -f null - &\nwait\n".utf8).write(to: helper)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helper.path)
         let unrelated = Process()
         unrelated.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/ffmpeg")
-        unrelated.arguments = ["-v", "error", "-re", "-f", "lavfi", "-i", "color=c=red:s=16x16:r=1", "-t", "30", "-f", "null", "-"]
+        unrelated.standardInput = FileHandle.nullDevice
+        unrelated.arguments = ["-nostdin", "-v", "error", "-re", "-f", "lavfi", "-i", "color=c=red:s=16x16:r=1", "-t", "30", "-f", "null", "-"]
         try unrelated.run()
         defer { if unrelated.isRunning { unrelated.terminate() } }
         let engine = Process()

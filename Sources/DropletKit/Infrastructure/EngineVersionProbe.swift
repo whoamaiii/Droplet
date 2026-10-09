@@ -29,6 +29,7 @@ final class EngineVersionProbe {
         child.environment = environment.processEnvironment
         child.arguments = ["--ignore-config", "--no-plugin-dirs", "--version"]
         let pipe = Pipe()
+        child.standardInput = FileHandle.nullDevice
         child.standardOutput = pipe
         child.standardError = pipe
         self.pipe = pipe

@@ -11,7 +11,10 @@ struct MediaVerifierTests {
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/ffmpeg")
             // Built in steps: one long `+` chain is too slow for the Swift 6 type checker.
-            var arguments = ["-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=12"]
+            // -nostdin: FFmpeg otherwise reads the terminal and is stopped
+            // (SIGTTIN) when the checks run in a pipeline, hanging the run.
+            p.standardInput = FileHandle.nullDevice
+            var arguments = ["-nostdin", "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=12"]
             if audio { arguments += ["-f", "lavfi", "-i", "sine=frequency=440"] }
             arguments += ["-t", "0.25", "-c:v", codec]
             arguments += audio ? ["-c:a", "aac"] : ["-an"]

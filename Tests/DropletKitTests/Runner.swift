@@ -1,6 +1,9 @@
 import Foundation
 @testable import DropletKit
 
+/// Message for the watchdog, set before each case (signal handlers cannot capture).
+var watchdogMessage: UnsafeMutablePointer<CChar>?
+
 @main
 struct TestRunner {
     @MainActor
@@ -18,6 +21,12 @@ struct TestRunner {
             let counts = Checks.counts
             print("Loopback QA: \(counts.assertions) assertions, \(counts.failures) failures")
             exit(counts.failures == 0 ? 0 : 1)
+        }
+        // Results appear line by line even when piped (e.g. through tee).
+        setvbuf(stdout, nil, _IOLBF, 0)
+        signal(SIGALRM) { _ in
+            if let message = watchdogMessage { _ = write(2, message, strlen(message)) }
+            _exit(124)
         }
         // Fail decisively rather than leaving an orphaned hung test run.
         alarm(60)
@@ -129,6 +138,8 @@ struct TestRunner {
             ("Real subprocess and pipe", { try await processInspector.testRealFoundationProcessRoutesFailureWithoutNetworkOrCookies() }),
         ]
         for (name, body) in cases {
+            free(watchdogMessage)
+            watchdogMessage = strdup("\nTIMEOUT: the checks did not finish within 60 seconds; stuck in \"\(name)\"\n")
             let before = Checks.counts
             do { try await body() } catch { recordFailure("\(name) threw: \(error)") }
             let after = Checks.counts

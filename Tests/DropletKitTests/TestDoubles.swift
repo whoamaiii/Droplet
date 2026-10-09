@@ -10,6 +10,7 @@ final class FakeProcess: Process, @unchecked Sendable {
     private var fakeExecutableURL: URL?
     private var fakeArguments: [String]?
     private var fakeEnvironment: [String: String]?
+    private var fakeInput: Any?
     private var fakeOutput: Any?
     private var fakeError: Any?
     private var fakeTerminationHandler: (@Sendable (Process) -> Void)?
@@ -27,6 +28,10 @@ final class FakeProcess: Process, @unchecked Sendable {
     override var environment: [String: String]? {
         get { fakeEnvironment }
         set { fakeEnvironment = newValue }
+    }
+    override var standardInput: Any? {
+        get { fakeInput }
+        set { fakeInput = newValue }
     }
     override var standardOutput: Any? {
         get { fakeOutput }

@@ -61,6 +61,7 @@ final class EngineUpdater: ObservableObject {
         process.arguments = ["--ignore-config", "--no-plugin-dirs", "--update-to", "stable"]
         process.environment = environment.processEnvironment
         let pipe = Pipe()
+        process.standardInput = FileHandle.nullDevice
         process.standardOutput = pipe
         process.standardError = pipe
         pipe.fileHandleForReading.readabilityHandler = { handle in

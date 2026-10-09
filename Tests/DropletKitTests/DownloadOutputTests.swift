@@ -48,7 +48,8 @@ struct DownloadOutputTests {
             let path = args[args.firstIndex(of: "-o")! + 1].replacingOccurrences(of: "%(ext)s", with: "mp4")
             let encoder = Process()
             encoder.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/ffmpeg")
-            encoder.arguments = ["-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=12", "-t", "0.25", "-an", "-c:v", "libx264", path]
+            encoder.standardInput = FileHandle.nullDevice
+            encoder.arguments = ["-nostdin", "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=12", "-t", "0.25", "-an", "-c:v", "libx264", path]
             encoder.standardOutput = FileHandle.nullDevice
             encoder.standardError = FileHandle.nullDevice
             try encoder.run()
