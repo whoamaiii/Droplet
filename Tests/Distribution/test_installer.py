@@ -21,7 +21,7 @@ VALUES = {"VERSION": "1.2.0", "ZIP_URL": "https://dropletapp.com/downloads/Dropl
 STUBS = {
     "uname": 'echo Darwin',
     "sw_vers": 'echo "${QA_MACOS:-15.1}"',
-    "curl": 'out=""; while [ $# -gt 0 ]; do [ "$1" = -o ] && { out="$2"; shift; }; shift; done; '
+    "curl": 'echo "$*" >> "$QA_STATE/curl.log"; out=""; while [ $# -gt 0 ]; do [ "$1" = -o ] && { out="$2"; shift; }; shift; done; '
             '[ -n "${QA_DOWNLOAD_FAILS:-}" ] && exit 22; cp "$QA_ZIP" "$out"',
     "shasum": 'python3 -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],\'rb\').read()).hexdigest()+\'  \'+sys.argv[1])" "$3"',
     "ditto": 'if [ "$1" = -x ]; then python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$3" "$4"; '
@@ -37,6 +37,7 @@ STUBS = {
 class RendererTests(unittest.TestCase):
     def test_values_are_validated_before_they_reach_the_script(self):
         script = renderer.render(renderer.TEMPLATE.read_text(), VALUES)
+        self.assertTrue(script.isascii(), "the installer stays plain ASCII for every terminal and locale")
         self.assertIn('ZIP_URL="https://dropletapp.com/downloads/Droplet-1.2.0.zip"', script)
         self.assertNotRegex(script, r"@[A-Z_]+@")
         for key, bad in [("ZIP_URL", "https://x.com/$(rm -rf ~).zip"), ("ZIP_URL", "http://x.com/a.zip"),
@@ -82,19 +83,30 @@ class InstallerTests(unittest.TestCase):
         values = {**VALUES, "SHA256": sha or hashlib.sha256(self.zip.read_bytes()).hexdigest()}
         script = self.root / "install.sh"
         script.write_text(renderer.render(renderer.TEMPLATE.read_text(), values))
-        environment = dict(os.environ, PATH=f"{self.bin}:/usr/bin:/bin", HOME=str(self.root),
+        # Shell start-up files from the person running the checks must not leak in.
+        inherited = {k: v for k, v in os.environ.items() if k not in ("BASH_ENV", "ENV", "CDPATH")}
+        environment = dict(inherited, PATH=f"{self.bin}:/usr/bin:/bin", HOME=str(self.root),
                            TMPDIR=str(self.root), DROPLET_INSTALL_DIR=str(self.apps), QA_ZIP=str(self.zip),
                            QA_STATE=str(self.state), **env)
         # Exactly how customers run it: the script arrives on standard input.
-        return subprocess.run(["bash"], input=script.read_text(), env=environment,
-                              capture_output=True, text=True, timeout=60)
+        # Output is decoded leniently so unexpected bytes show up in the failure
+        # message instead of crashing the test.
+        result = subprocess.run(["bash"], input=script.read_bytes(), env=environment,
+                                capture_output=True, timeout=60)
+        result.stdout = result.stdout.decode("utf-8", "backslashreplace")
+        result.stderr = result.stderr.decode("utf-8", "backslashreplace")
+        return result
 
     def installed_payload(self):
         return (self.apps / "Droplet.app/Contents/MacOS/Droplet").read_bytes()
 
     def test_fresh_install_verifies_and_opens(self):
         result = self.install()
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
+        self.assertTrue((self.state / "curl.log").exists(), "the stand-in curl was used, not the real one")
+        if result.stderr:
+            # Visible in the run's output without failing on harmless tool noise.
+            print(f"\nNOTE: unexpected stderr from a successful install:\n{result.stderr}")
         self.assertEqual(self.installed_payload(), b"new build")
         self.assertEqual((self.state / "opened.log").read_text().strip(), str(self.apps / "Droplet.app"))
         self.assertEqual(list(self.root.glob("droplet-install.*")), [], "temporary files are removed")
@@ -105,7 +117,7 @@ class InstallerTests(unittest.TestCase):
             with self.subTest(message=message):
                 result = self.install(sha=sha, **env)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn(message, result.stderr)
+                self.assertIn(message, result.stderr, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}")
                 self.assertFalse((self.apps / "Droplet.app").exists())
                 self.assertFalse((self.state / "opened.log").exists())
 
