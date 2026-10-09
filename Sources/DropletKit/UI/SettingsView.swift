@@ -58,6 +58,7 @@ struct SettingsView: View {
                     Text("Help and privacy").font(.headline)
                     Text("Copy a link to a video you have the right to download, open the droplet, and choose Download. Cancel stops the current job; closing the bubble lets it continue.")
                     Text("If saving fails, check folder access and free disk space. Choose a new folder if the original was moved or disconnected. Sites change often: use the update button in the bubble if downloads from a site stop working.")
+                    Text("To install a new version of Droplet, run the install command from the Droplet website again. Your license, free downloads and settings are kept.")
                     Text("Browser login is optional and approved for one download. Droplet has no tracking or analytics. Activating a license sends only your license key to the payment provider; video links and browser cookies are never sent anywhere except the video site itself.")
                     if !manager.engineIsBundled {
                         Text("Development build: uses Homebrew yt-dlp and FFmpeg.")

@@ -1,7 +1,12 @@
 #!/bin/bash
-# Builds the customer download: a Developer ID-signed, notarized and stapled
-# Droplet.app (universal by default) inside a signed, notarized DMG, plus a
-# SHA-256 file for the website.
+# Builds the customer download for your website (never the App Store):
+#
+# - With a "Developer ID Application" identity (paid Apple account): a signed,
+#   notarized and stapled app in a notarized DMG. Opens with a double-click.
+# - With any other identity — a free self-signed certificate, a free
+#   "Apple Development" certificate, or "-" — a "direct" build: a zip plus an
+#   install.sh that customers run with one Terminal line, and a DMG for those
+#   who prefer System Settings → Privacy & Security → Open Anyway.
 #
 #   cp release.env.example release.env      # fill in once; it is git-ignored
 #   ./scripts/release.sh [path/to/release.env]
@@ -33,16 +38,28 @@ case "$DROPLET_ARCH" in
     arm64|x86_64) ARCHS=("$DROPLET_ARCH") ;;
     *) fail "DROPLET_ARCH must be universal, arm64 or x86_64" ;;
 esac
-IDENTITY="${DEVELOPER_ID_APPLICATION:-}"
-[ -n "$IDENTITY" ] || fail "DEVELOPER_ID_APPLICATION is required (\"Developer ID Application: Name (TEAMID)\", or - for an unsigned test build)"
-if [ "$IDENTITY" = "-" ]; then
-    SKIP_NOTARIZE=1
-    echo "release: ad-hoc test build — NOT for customers (Gatekeeper will block it)" >&2
-else
-    [[ "$IDENTITY" == "Developer ID Application:"* ]] || fail "DEVELOPER_ID_APPLICATION must be a \"Developer ID Application: …\" identity"
-    [ "$SKIP_NOTARIZE" = 1 ] || [ -n "${NOTARY_PROFILE:-}" ] || fail "NOTARY_PROFILE is required (xcrun notarytool store-credentials)"
-fi
 https_url() { [[ "$1" =~ ^https://[A-Za-z0-9.-]+(/[^[:space:]]*)?$ ]]; }
+IDENTITY="${SIGNING_IDENTITY:-${DEVELOPER_ID_APPLICATION:-}}"
+[ -n "$IDENTITY" ] || fail "SIGNING_IDENTITY is required: the name of your free self-signed certificate (docs/release/RELEASE.md), a \"Developer ID Application: …\" identity, or -"
+if [[ "$IDENTITY" == "Developer ID Application:"* ]]; then
+    MODE=notarized
+    [ "$SKIP_NOTARIZE" = 1 ] || [ -n "${NOTARY_PROFILE:-}" ] || fail "NOTARY_PROFILE is required (xcrun notarytool store-credentials)"
+else
+    MODE=direct
+    SKIP_NOTARIZE=1
+    if [ "$IDENTITY" = "-" ]; then
+        echo "release: unsigned (ad-hoc) build — macOS will ask customers again for folder and Keychain access after every update; a free self-signed certificate avoids that (see docs/release/RELEASE.md)" >&2
+    fi
+fi
+DOWNLOAD_URL="${DROPLET_DOWNLOAD_URL:-}"
+DOWNLOAD_URL="${DOWNLOAD_URL%/}"
+if [ "$MODE" = direct ]; then
+    https_url "$DOWNLOAD_URL" || fail "DROPLET_DOWNLOAD_URL is required without a Developer ID: the https folder on your website where you upload Droplet's zip (the install command downloads from it)"
+elif [ -n "$DOWNLOAD_URL" ]; then
+    https_url "$DOWNLOAD_URL" || fail "DROPLET_DOWNLOAD_URL must be an https URL"
+fi
+[ -z "$DOWNLOAD_URL" ] || [[ "$DOWNLOAD_URL" =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~%/+-]*)?$ ]] \
+    || fail "DROPLET_DOWNLOAD_URL may only use letters, digits and . _ ~ % / + - (it is pasted into the install command)"
 if [ "${ALLOW_UNLICENSED:-0}" != 1 ]; then
     [[ "${DROPLET_LS_STORE_ID:-}" =~ ^[0-9]+$ ]] || fail "DROPLET_LS_STORE_ID (numeric Lemon Squeezy store ID) is required; without it the trial ends with no way to buy"
     [[ "${DROPLET_LS_PRODUCT_ID:-}" =~ ^[0-9]+$ ]] || fail "DROPLET_LS_PRODUCT_ID (numeric) is required"
@@ -60,9 +77,13 @@ if [ "${VALIDATE_ONLY:-0}" = 1 ]; then echo "release: configuration OK"; exit 0;
 for tool in swift lipo codesign hdiutil ditto plutil xcrun spctl shasum xattr; do
     command -v "$tool" >/dev/null || fail "$tool is missing (install Xcode or the Command Line Tools)"
 done
-if [ "$IDENTITY" != "-" ]; then
+if [ "$MODE" = notarized ]; then
     security find-identity -v -p codesigning | grep -qF "\"$IDENTITY\"" \
         || fail "signing identity not found in your keychain: $IDENTITY"
+elif [ "$IDENTITY" != "-" ]; then
+    # Self-signed certificates are not "valid" (trusted) identities, so no -v.
+    security find-identity -p codesigning | grep -qF "\"$IDENTITY\"" \
+        || fail "signing certificate not found in your keychain: $IDENTITY"
 fi
 
 # ---------------------------------------------------------------- build
@@ -104,12 +125,19 @@ plutil -lint "$PLIST"
 
 # ---------------------------------------------------------------- sign
 xattr -cr "$APP"
-if [ "$IDENTITY" = "-" ]; then TIMESTAMP=(--timestamp=none); else TIMESTAMP=(--timestamp); fi
-sign() { codesign --force "${TIMESTAMP[@]}" --options runtime --sign "$IDENTITY" "$@"; }
-for helper in "$APP/Contents/Helpers/"*; do
-    entitlements="$SRC_DIR/Resources/Entitlements/$(basename "$helper").entitlements"
-    if [ -f "$entitlements" ]; then sign --entitlements "$entitlements" "$helper"; else sign "$helper"; fi
-done
+if [ "$MODE" = notarized ]; then
+    # Hardened runtime and secure timestamps are what notarization requires.
+    sign() { codesign --force --timestamp --options runtime --sign "$IDENTITY" "$@"; }
+    for helper in "$APP/Contents/Helpers/"*; do
+        entitlements="$SRC_DIR/Resources/Entitlements/$(basename "$helper").entitlements"
+        if [ -f "$entitlements" ]; then sign --entitlements "$entitlements" "$helper"; else sign "$helper"; fi
+    done
+else
+    # Direct builds are not notarized; a plain signature keeps the identity
+    # stable (with a certificate) and satisfies Apple silicon.
+    sign() { codesign --force --timestamp=none --sign "$IDENTITY" "$@"; }
+    for helper in "$APP/Contents/Helpers/"*; do sign "$helper"; done
+fi
 sign "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
@@ -148,7 +176,7 @@ ditto "$APP" "$STAGE/Droplet.app"
 ln -s /Applications "$STAGE/Applications"
 rm -f "$DMG" "$DMG.sha256"
 hdiutil create -volname "Droplet" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
-if [ "$IDENTITY" != "-" ]; then
+if [ "$MODE" = notarized ]; then
     codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 fi
 if [ "$SKIP_NOTARIZE" != 1 ]; then
@@ -159,9 +187,30 @@ if [ "$SKIP_NOTARIZE" != 1 ]; then
 fi
 (cd "$DIST" && shasum -a 256 "$(basename "$DMG")" > "$(basename "$DMG").sha256")
 
+# The zip is what the one-line installer downloads (a stapled app in notarized mode).
+ZIP="$DIST/Droplet-$DROPLET_VERSION.zip"
+rm -f "$ZIP" "$ZIP.sha256" "$DIST/install.sh"
+ditto -c -k --keepParent "$APP" "$ZIP"
+(cd "$DIST" && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256")
+if [ -n "$DOWNLOAD_URL" ]; then
+    python3 "$SRC_DIR/scripts/render_installer.py" --output "$DIST/install.sh" \
+        --version "$DROPLET_VERSION" --zip-url "$DOWNLOAD_URL/$(basename "$ZIP")" \
+        --sha256 "$(cut -d' ' -f1 < "$ZIP.sha256")" --bundle-id "$DROPLET_BUNDLE_ID"
+fi
+
 echo
-echo "Release ready:"
-echo "  $DMG"
-echo "  $(cat "$DMG.sha256")"
+echo "Release ready in $DIST:"
+echo "  $(basename "$DMG")   $(cut -d' ' -f1 < "$DMG.sha256")"
+echo "  $(basename "$ZIP")   $(cut -d' ' -f1 < "$ZIP.sha256")"
 echo "  bundle id $DROPLET_BUNDLE_ID, version $DROPLET_VERSION ($DROPLET_BUILD), engine yt-dlp $ENGINE_VERSION, ${ARCHS[*]}"
-if [ "$SKIP_NOTARIZE" = 1 ]; then echo "  NOT notarized — for testing only, do not publish."; fi
+if [ -n "$DOWNLOAD_URL" ]; then
+    echo
+    echo "Upload $(basename "$ZIP"), $(basename "$DMG") and install.sh to $DOWNLOAD_URL/"
+    echo "Install command for your download page:"
+    echo "  curl -fsSL $DOWNLOAD_URL/install.sh | bash"
+fi
+if [ "$MODE" = direct ]; then
+    echo
+    echo "Direct build (no Developer ID): customers use the install command above, or open"
+    echo "the DMG and allow it once in System Settings → Privacy & Security → Open Anyway."
+fi

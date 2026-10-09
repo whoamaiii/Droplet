@@ -77,12 +77,39 @@ class ReleaseConfiguration(unittest.TestCase):
             with self.subTest(overrides=overrides):
                 self.assertNotEqual(self.run_release(overrides).returncode, 0)
         self.assertNotEqual(self.run_release(remove=("NOTARY_PROFILE",)).returncode, 0)
-        adhoc = self.run_release({"DEVELOPER_ID_APPLICATION": "-"}, remove=("NOTARY_PROFILE",))
-        self.assertEqual(adhoc.returncode, 0, adhoc.stderr)
-        self.assertIn("NOT for customers", adhoc.stderr)
         unpinned = self.run_release(engine_version="")
         self.assertNotEqual(unpinned.returncode, 0)
         self.assertIn("not pinned", unpinned.stderr)
+
+
+class DirectDownloadConfiguration(unittest.TestCase):
+    """Without a paid Developer ID: install command + zip from your website."""
+
+    run_release = ReleaseConfiguration.run_release
+    DIRECT = {"SIGNING_IDENTITY": "Droplet Signing", "DROPLET_DOWNLOAD_URL": "https://dropletapp.com/downloads/"}
+
+    def test_self_signed_direct_build_needs_a_download_folder(self):
+        result = self.run_release(self.DIRECT, remove=("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        missing = self.run_release({"SIGNING_IDENTITY": "Droplet Signing"}, remove=("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE"))
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn("DROPLET_DOWNLOAD_URL is required", missing.stderr)
+        for bad in ("http://dropletapp.com/downloads", "https://dropletapp.com/my downloads",
+                    "https://dropletapp.com/a;b", "https://dropletapp.com/a|b", "https://dropletapp.com/a'b"):
+            with self.subTest(url=bad):
+                self.assertNotEqual(self.run_release({**self.DIRECT, "DROPLET_DOWNLOAD_URL": bad},
+                                                     remove=("DEVELOPER_ID_APPLICATION",)).returncode, 0)
+
+    def test_signing_identity_choices(self):
+        apple_development = self.run_release({**self.DIRECT, "SIGNING_IDENTITY": "Apple Development: Test Person (ABCDE12345)"},
+                                             remove=("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE"))
+        self.assertEqual(apple_development.returncode, 0, apple_development.stderr)
+        adhoc = self.run_release({**self.DIRECT, "SIGNING_IDENTITY": "-"}, remove=("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE"))
+        self.assertEqual(adhoc.returncode, 0, adhoc.stderr)
+        self.assertIn("self-signed certificate avoids", adhoc.stderr)
+        empty = self.run_release(remove=("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE"))
+        self.assertNotEqual(empty.returncode, 0)
+        self.assertIn("SIGNING_IDENTITY is required", empty.stderr)
 
 
 class EngineFetch(unittest.TestCase):

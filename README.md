@@ -22,9 +22,26 @@ requires your explicit approval for that download.
   Site compatibility varies.
 - Optional **Open Droplet at login** in Settings (system login items).
 
-**Publishing:** see [docs/release/RELEASE.md](docs/release/RELEASE.md) for the
-Apple Developer ID, Lemon Squeezy, engine pinning, signing/notarization and
-customer test checklist. `./scripts/release.sh` produces the notarized DMG.
+## Installing (customers)
+
+Droplet is sold and downloaded from its own website — not the Mac App Store,
+and no paid Apple developer account is needed. Customers paste one line into
+Terminal, which downloads the app, checks its SHA-256 fingerprint, installs it
+into Applications and opens it, with no "unidentified developer" warning:
+
+```bash
+curl -fsSL https://yourdomain.com/droplet/install.sh | bash
+```
+
+Running the same line again updates Droplet. A DMG is also published for
+people who prefer a normal download (they allow it once with System Settings →
+Privacy & Security → Open Anyway).
+
+**Publishing:** [docs/release/RELEASE.md](docs/release/RELEASE.md) covers the
+free signing certificate, Lemon Squeezy, the download page text, engine
+pinning, and the customer test checklist. `./scripts/release.sh` builds the
+zip, `install.sh` and DMG into `dist/` for upload. A paid Developer ID can be
+added later for notarization; nothing else changes.
 
 ## Development and local verification
 

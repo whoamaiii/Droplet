@@ -70,3 +70,10 @@ WHO-226 isolates the engine environment, validates all URL entry points, classif
   (SHA-256 pinned); `scripts/release.sh` builds universal, signs with the
   hardened runtime (`Resources/Entitlements/`), notarizes, staples and makes
   the DMG. See [the release guide](../release/RELEASE.md).
+- Distribution is direct from the website without a paid Apple account:
+  `scripts/release.sh` signs with a stable (free, self-signed) certificate and
+  renders `scripts/install.sh.in` via `scripts/render_installer.py` into
+  `dist/install.sh`, which customers run with `curl -fsSL …/install.sh | bash`.
+  It verifies the zip's SHA-256, never replaces a different app's bundle, and
+  quits a running Droplet before updating. A Developer ID identity switches the
+  same script to hardened runtime + notarization.
