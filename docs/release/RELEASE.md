@@ -1,7 +1,8 @@
 # Releasing Droplet on your website
 
 This is the path from this repository to a DMG that customers can download
-from your site, open without Gatekeeper warnings, try for free, and buy.
+from **your own website** (not the Mac App Store), open without Gatekeeper
+warnings, try for free, and buy.
 
 The code side is done: the engine ships inside the app, the in-app engine
 update no longer uses Homebrew, and Lemon Squeezy license activation is built
@@ -9,7 +10,23 @@ in. What remains needs your accounts and decisions. Do the steps in order.
 
 ## 1. One-time setup
 
-### Apple Developer ID (required — otherwise macOS blocks the app)
+### Apple Developer ID (for website downloads — this is not the App Store)
+
+Droplet is never submitted to the App Store. But macOS checks every app
+downloaded from the internet. Unless it is signed with a **Developer ID** and
+**notarized** (an automatic malware scan by Apple that takes a few minutes),
+macOS shows "Apple could not verify Droplet is free of malware" and offers
+only *Move to Trash*. Since macOS 15 the old right-click → Open shortcut is
+gone; customers would have to find **System Settings → Privacy & Security →
+Open Anyway** and enter their password. Most buyers will give up or think the
+app is broken. Developer ID signing is how every non-App-Store Mac app
+(Chrome, Spotify, VLC…) avoids this. It needs a paid Apple developer
+membership; nothing is listed in, or sold through, Apple's store.
+
+Shipping without it is possible (`DEVELOPER_ID_APPLICATION="-"` builds an
+unsigned DMG), but then your download page must walk customers through
+"Open Anyway", and the bundled helpers may trigger further warnings.
+It is not recommended for a paid app.
 
 1. Join the [Apple Developer Program](https://developer.apple.com/programs/enroll/) (US$99/year).
 2. In Xcode → Settings → Accounts → your team → **Manage Certificates…** → **+** →
