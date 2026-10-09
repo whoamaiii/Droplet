@@ -112,9 +112,12 @@ struct LemonSqueezyLicenseClient: LicenseClient {
 
     static func formEncode(_ fields: [String: String]) -> String {
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
-        return fields.sorted { $0.key < $1.key }.map { key, value in
-            key + "=" + (value.addingPercentEncoding(withAllowedCharacters: allowed) ?? "")
-        }.joined(separator: "&")
+        var pairs: [String] = []
+        for key in fields.keys.sorted() {
+            let encoded = fields[key]?.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+            pairs.append(key + "=" + encoded)
+        }
+        return pairs.joined(separator: "&")
     }
 
     func evidence(from response: Response) throws -> LicenseEvidence {

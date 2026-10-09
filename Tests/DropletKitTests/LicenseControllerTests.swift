@@ -39,12 +39,23 @@ final class MemoryLicenseStore: LicenseStore {
 struct LemonSqueezyLicenseTests {
     static func body(_ flag: String, _ value: Bool, status: String = "active", store: Any = 101, product: Any = 202,
                      variant: Any = 303, instance: String? = "inst-1", expires: String? = nil, error: String? = nil) -> Data {
-        var object: [String: Any] = [flag: value, "error": error as Any? ?? NSNull()]
-        object["license_key"] = ["id": 1, "status": status, "key": "KEY", "activation_limit": 2,
-                                 "activation_usage": 1, "expires_at": expires as Any? ?? NSNull()]
-        object["instance"] = instance.map { ["id": $0, "name": "Droplet for Mac", "created_at": "2026-10-08T10:00:00.000000Z"] } as Any? ?? NSNull()
-        object["meta"] = ["store_id": store, "order_id": 9, "product_id": product, "variant_id": variant,
-                          "customer_email": "buyer@example.invalid"]
+        let null: Any = NSNull()
+        var key: [String: Any] = ["id": 1, "status": status, "key": "KEY", "activation_limit": 2, "activation_usage": 1]
+        key["expires_at"] = expires ?? null
+        var meta: [String: Any] = ["order_id": 9, "customer_email": "buyer@example.invalid"]
+        meta["store_id"] = store
+        meta["product_id"] = product
+        meta["variant_id"] = variant
+        var object: [String: Any] = [flag: value]
+        object["error"] = error ?? null
+        object["license_key"] = key
+        if let instance {
+            let record: [String: Any] = ["id": instance, "name": "Droplet for Mac", "created_at": "2026-10-08T10:00:00.000000Z"]
+            object["instance"] = record
+        } else {
+            object["instance"] = null
+        }
+        object["meta"] = meta
         return try! JSONSerialization.data(withJSONObject: object)
     }
 
@@ -188,7 +199,7 @@ struct LicenseControllerTests {
         expectTrue(license.isLicensed, "A network failure never removes a license")
         expectNotNilLicense(store)
 
-        now.addTimeInterval(5 * 24 * 60 * 60)
+        now.addTimeInterval(TimeInterval(5 * 86_400))
         client.validation = .success(Self.evidence())
         await license.refreshIfDue()
         expectEqual(store.stored?.lastValidatedAt, now)
@@ -208,7 +219,7 @@ struct LicenseControllerTests {
         let store = MemoryLicenseStore()
         func seed() {
             store.stored = StoredLicense(key: "KEY", product: Self.evidence().product, instance: LicenseInstance(instanceID: "inst-1"),
-                                         lastValidatedAt: now.addingTimeInterval(-2 * 24 * 60 * 60), expiresAt: nil)
+                                         lastValidatedAt: now.addingTimeInterval(TimeInterval(-2 * 86_400)), expiresAt: nil)
         }
         seed()
         var license = LicenseController(product: Self.product, checkoutURL: nil, client: client, store: store, now: { now })
@@ -305,7 +316,7 @@ struct LicenseControllerTests {
         expectTrue(client.calls.isEmpty, "Re-reading the Keychain does not create a new activation")
 
         store.stored = StoredLicense(key: "KEY", product: Self.evidence().product, instance: LicenseInstance(instanceID: "inst-1"),
-                                     lastValidatedAt: now.addingTimeInterval(400 * 24 * 60 * 60), expiresAt: nil)
+                                     lastValidatedAt: now.addingTimeInterval(TimeInterval(400 * 86_400)), expiresAt: nil)
         let future = LicenseController(product: Self.product, checkoutURL: nil, client: client, store: store, now: { now })
         expectFalse(future.isLicensed, "A check dated far in the future does not extend the offline allowance")
         expectTrue(future.needsOnlineCheck)

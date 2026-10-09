@@ -305,7 +305,8 @@ final class DownloadManager: ObservableObject {
         let process = environment.makeProcess()
         process.executableURL = environment.downloaderURL
         process.environment = environment.processEnvironment
-        process.arguments = [
+        // Built in steps: one long `+` chain is too slow for the Swift 6 type checker.
+        var arguments: [String] = [
             "--ignore-config", "--no-plugin-dirs",
             "--newline",
             "--no-playlist",
@@ -322,8 +323,14 @@ final class DownloadManager: ObservableObject {
             "-f", DownloadFormatPolicy.selector,
             "--merge-output-format", "mp4",
             "-o", workspace.outputTemplate,
-        ] + (environment.jsRuntimeURL.map { ["--js-runtimes", "deno:" + $0.path] } ?? [])
-          + outputProtocol.arguments + attempt.extra + [url.absoluteString]
+        ]
+        if let runtime = environment.jsRuntimeURL {
+            arguments += ["--js-runtimes", "deno:" + runtime.path]
+        }
+        arguments += outputProtocol.arguments
+        arguments += attempt.extra
+        arguments.append(url.absoluteString)
+        process.arguments = arguments
 
         let pipe = Pipe()
         process.standardOutput = pipe

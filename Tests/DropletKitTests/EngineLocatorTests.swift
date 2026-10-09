@@ -17,7 +17,7 @@ struct EngineLocatorTests {
             EngineLocator.resolve(helpers: release ? helpers : nil, updated: updated, bundledVersion: bundled,
                                   developmentDirectories: [brew], isExecutable: { present.contains($0.path) })
         }
-        let bundle: Set = [helpers.path + "/yt-dlp", helpers.path + "/ffmpeg", helpers.path + "/deno", brew.path + "/yt-dlp"]
+        let bundle: Set<String> = [helpers.path + "/yt-dlp", helpers.path + "/ffmpeg", helpers.path + "/deno", brew.path + "/yt-dlp"]
         let bundled = resolve(bundle)
         expectEqual(bundled.downloader.path, helpers.path + "/yt-dlp", "Bundled helpers win over Homebrew")
         expectEqual(bundled.ffmpegDirectory, helpers)
