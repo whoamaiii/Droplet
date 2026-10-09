@@ -1,9 +1,10 @@
 name: CI
 
 # The repository is private, so macOS runner minutes are billed (10x Linux).
-# Runs only for pull requests and on demand (Actions → CI → Run workflow).
+# To stay within GitHub's free plan it runs only on demand (Actions → CI →
+# Run workflow), not on every pull request. Run the same checks locally:
+#   ./scripts/test.sh && python3 -m unittest discover -s Tests/Distribution
 on:
-  pull_request:
   workflow_dispatch:
 
 concurrency:
