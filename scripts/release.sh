@@ -24,21 +24,29 @@ set -a
 set +a
 
 # ---------------------------------------------------------------- validate
+# Patterns live in variables: macOS's bash 3.2 cannot parse parentheses
+# written directly inside [[ =~ ]].
+RE_BUNDLE_ID='^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$'
+RE_VERSION='^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+RE_NUMBER='^[0-9]+$'
+RE_HTTPS='^https://[A-Za-z0-9.-]+(/[^[:space:]]*)?$'
+RE_DOWNLOAD_URL='^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~%/+-]*)?$'
+RE_EMAIL='^(mailto:)?[^@[:space:]/?]+@[^@[:space:]/?]+\.[A-Za-z]+$'
 DROPLET_ARCH="${DROPLET_ARCH:-universal}"
 SKIP_NOTARIZE="${SKIP_NOTARIZE:-0}"
 [ -n "${DROPLET_BUNDLE_ID:-}" ] || fail "DROPLET_BUNDLE_ID is required (for example com.yourdomain.droplet)"
-[[ "$DROPLET_BUNDLE_ID" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]] || fail "DROPLET_BUNDLE_ID must be reverse-DNS"
+[[ "$DROPLET_BUNDLE_ID" =~ $RE_BUNDLE_ID ]] || fail "DROPLET_BUNDLE_ID must be reverse-DNS"
 case "$DROPLET_BUNDLE_ID" in
     local.*|*.example.*|com.example*|*.preview) fail "DROPLET_BUNDLE_ID must be your own permanent identifier, not $DROPLET_BUNDLE_ID" ;;
 esac
-[[ "${DROPLET_VERSION:-}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || fail "DROPLET_VERSION must look like 1.0 or 1.0.1"
-[[ "${DROPLET_BUILD:-}" =~ ^[0-9]+$ ]] || fail "DROPLET_BUILD must be a whole number that increases every release"
+[[ "${DROPLET_VERSION:-}" =~ $RE_VERSION ]] || fail "DROPLET_VERSION must look like 1.0 or 1.0.1"
+[[ "${DROPLET_BUILD:-}" =~ $RE_NUMBER ]] || fail "DROPLET_BUILD must be a whole number that increases every release"
 case "$DROPLET_ARCH" in
     universal) ARCHS=(arm64 x86_64) ;;
     arm64|x86_64) ARCHS=("$DROPLET_ARCH") ;;
     *) fail "DROPLET_ARCH must be universal, arm64 or x86_64" ;;
 esac
-https_url() { [[ "$1" =~ ^https://[A-Za-z0-9.-]+(/[^[:space:]]*)?$ ]]; }
+https_url() { [[ "$1" =~ $RE_HTTPS ]]; }
 IDENTITY="${SIGNING_IDENTITY:-${DEVELOPER_ID_APPLICATION:-}}"
 [ -n "$IDENTITY" ] || fail "SIGNING_IDENTITY is required: the name of your free self-signed certificate (docs/release/RELEASE.md), a \"Developer ID Application: …\" identity, or -"
 if [[ "$IDENTITY" == "Developer ID Application:"* ]]; then
@@ -58,18 +66,18 @@ if [ "$MODE" = direct ]; then
 elif [ -n "$DOWNLOAD_URL" ]; then
     https_url "$DOWNLOAD_URL" || fail "DROPLET_DOWNLOAD_URL must be an https URL"
 fi
-[ -z "$DOWNLOAD_URL" ] || [[ "$DOWNLOAD_URL" =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~%/+-]*)?$ ]] \
+[ -z "$DOWNLOAD_URL" ] || [[ "$DOWNLOAD_URL" =~ $RE_DOWNLOAD_URL ]] \
     || fail "DROPLET_DOWNLOAD_URL may only use letters, digits and . _ ~ % / + - (it is pasted into the install command)"
 if [ "${ALLOW_UNLICENSED:-0}" != 1 ]; then
-    [[ "${DROPLET_LS_STORE_ID:-}" =~ ^[0-9]+$ ]] || fail "DROPLET_LS_STORE_ID (numeric Lemon Squeezy store ID) is required; without it the trial ends with no way to buy"
-    [[ "${DROPLET_LS_PRODUCT_ID:-}" =~ ^[0-9]+$ ]] || fail "DROPLET_LS_PRODUCT_ID (numeric) is required"
-    [ -z "${DROPLET_LS_VARIANT_ID:-}" ] || [[ "$DROPLET_LS_VARIANT_ID" =~ ^[0-9]+$ ]] || fail "DROPLET_LS_VARIANT_ID must be numeric or empty"
+    [[ "${DROPLET_LS_STORE_ID:-}" =~ $RE_NUMBER ]] || fail "DROPLET_LS_STORE_ID (numeric Lemon Squeezy store ID) is required; without it the trial ends with no way to buy"
+    [[ "${DROPLET_LS_PRODUCT_ID:-}" =~ $RE_NUMBER ]] || fail "DROPLET_LS_PRODUCT_ID (numeric) is required"
+    [ -z "${DROPLET_LS_VARIANT_ID:-}" ] || [[ "$DROPLET_LS_VARIANT_ID" =~ $RE_NUMBER ]] || fail "DROPLET_LS_VARIANT_ID must be numeric or empty"
     https_url "${DROPLET_CHECKOUT_URL:-}" || fail "DROPLET_CHECKOUT_URL must be your https checkout link"
 fi
 https_url "${DROPLET_WEBSITE_URL:-}" || fail "DROPLET_WEBSITE_URL must be an https URL"
 https_url "${DROPLET_PRIVACY_URL:-}" || fail "DROPLET_PRIVACY_URL must be an https URL (a privacy policy is required for selling)"
 SUPPORT="${DROPLET_SUPPORT:-}"
-https_url "$SUPPORT" || [[ "$SUPPORT" =~ ^(mailto:)?[^@[:space:]/?]+@[^@[:space:]/?]+\.[A-Za-z]+$ ]] || fail "DROPLET_SUPPORT must be an email address or https URL"
+https_url "$SUPPORT" || [[ "$SUPPORT" =~ $RE_EMAIL ]] || fail "DROPLET_SUPPORT must be an email address or https URL"
 ENGINE_VERSION="$(python3 "$SRC_DIR/scripts/fetch_engine.py" --print-version)"
 [ -n "$ENGINE_VERSION" ] || fail "the engine is not pinned — run: python3 scripts/fetch_engine.py --pin --yt-dlp latest --deno latest --ffmpeg"
 if [ "${VALIDATE_ONLY:-0}" = 1 ]; then echo "release: configuration OK"; exit 0; fi

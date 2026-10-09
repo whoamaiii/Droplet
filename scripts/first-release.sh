@@ -66,15 +66,21 @@ keyUsage = critical, digitalSignature
 extendedKeyUsage = critical, codeSigning
 subjectKeyIdentifier = hash
 EOF
-    OPENSSL=/usr/bin/openssl
+    OPENSSL="${DROPLET_OPENSSL:-/usr/bin/openssl}"   # override only for the tests
     "$OPENSSL" req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes -config "$work/cert.cnf" \
         -keyout "$work/key.pem" -out "$work/cert.pem" 2>/dev/null || fail "could not create the certificate."
     password="$("$OPENSSL" rand -hex 16)"
-    legacy=()
-    # security import only reads the classic PKCS#12 encryption.
-    "$OPENSSL" version | grep -q LibreSSL || legacy=(-legacy -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1)
-    "$OPENSSL" pkcs12 -export "${legacy[@]}" -inkey "$work/key.pem" -in "$work/cert.pem" -name "$CERT_NAME" \
-        -out "$work/signing.p12" -passout "pass:$password" || fail "could not package the certificate."
+    # security import only reads the classic PKCS#12 encryption, which
+    # macOS's LibreSSL writes by default; OpenSSL 3 needs it requested.
+    # (No arrays here: macOS bash 3.2 treats an empty "${a[@]}" as unbound.)
+    if "$OPENSSL" version | grep -q LibreSSL; then
+        "$OPENSSL" pkcs12 -export -inkey "$work/key.pem" -in "$work/cert.pem" -name "$CERT_NAME" \
+            -out "$work/signing.p12" -passout "pass:$password" || fail "could not package the certificate."
+    else
+        "$OPENSSL" pkcs12 -export -legacy -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
+            -inkey "$work/key.pem" -in "$work/cert.pem" -name "$CERT_NAME" \
+            -out "$work/signing.p12" -passout "pass:$password" || fail "could not package the certificate."
+    fi
     security import "$work/signing.p12" -k "$HOME/Library/Keychains/login.keychain-db" -P "$password" -T /usr/bin/codesign \
         || fail "could not add the certificate to your login keychain."
     mkdir -p "$BACKUP_DIR"
@@ -108,7 +114,9 @@ else
         ask "Your website's domain, for example dropletapp.com"
         domain="$(printf '%s' "$REPLY" | tr '[:upper:]' '[:lower:]')"
         domain="${domain#https://}"; domain="${domain#http://}"; domain="${domain#www.}"; domain="${domain%%/*}"
-        [[ "$domain" =~ ^[a-z0-9-]+(\.[a-z0-9-]+)+$ ]] && break
+        # In a variable: macOS's bash 3.2 cannot parse parentheses inside [[ =~ ]].
+        domain_pattern='^[a-z0-9-]+(\.[a-z0-9-]+)+$'
+        [[ "$domain" =~ $domain_pattern ]] && break
         note "That doesn't look like a domain; try again."
     done
     reversed="$(printf '%s' "$domain" | awk -F. '{for (i = NF; i > 0; i--) printf "%s%s", $i, (i > 1 ? "." : "")}')"
@@ -162,7 +170,7 @@ if grep -q "^ALLOW_UNLICENSED='1'" release.env; then
 fi
 
 read -r -p $'\n   Install this build on this Mac now to try it? [Y/n] ' answer
-if [[ ! "$answer" =~ ^[Nn] ]]; then
+if [[ "$answer" != [Nn]* ]]; then
     try="$(mktemp -d)"
     ditto -x -k "$zip" "$try"
     destination=/Applications
