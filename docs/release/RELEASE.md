@@ -153,9 +153,18 @@ templates in `website/` and the values in `release.env`:
 - `install.sh` and, for your own web host, the zip and DMG.
 
 The seller name (`DROPLET_OWNER`), support email and price come from
-`release.env`; `DROPLET_ADDRESS` adds a postal address to the legal pages if
-your country requires one. Have the texts checked for your country (this is
-not legal advice). To change wording, edit `website/` and build again.
+`release.env`; `DROPLET_COUNTRY` is shown after the seller's name and
+`DROPLET_ADDRESS` adds a postal address to the legal pages if your country
+requires one. Have the texts checked for your country (this is not legal
+advice). To change wording, edit `website/` and build again.
+
+`DROPLET_LAUNCH_OFFER=1` turns on the launch offer: customers choose any price
+from US$0 up to `DROPLET_PRICE`, and every price is the same full license. The
+price chooser sends the choice to `DROPLET_LAUNCH_CHECKOUT_URL`, which must
+check it again and start the checkout; without that address the page says
+checkout isn't open. [WEBSITE-HANDOFF.md](../../WEBSITE-HANDOFF.md) lists the
+store setup this needs. To look at the website without a release, run
+`python3 scripts/preview_site.py` and open http://127.0.0.1:8765/.
 
 **Free hosting on GitHub (recommended).** The wizard sets
 `DROPLET_GITHUB_REPO=yourname/yourname.github.io` and

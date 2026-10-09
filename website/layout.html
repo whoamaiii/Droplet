@@ -2,23 +2,80 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{title}}</title>
 <meta name="description" content="{{description}}">
-<link rel="icon" type="image/png" href="{{root}}icon.png">
+<!-- if preview --><meta name="robots" content="noindex, nofollow">
+<!-- end preview --><meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f3f6fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#060c15" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{title}}">
+<meta property="og:description" content="{{description}}">
+<!-- if has_download --><link rel="canonical" href="{{canonical_url}}">
+<meta property="og:url" content="{{canonical_url}}">
+<meta property="og:image" content="{{og_image}}">
+<!-- end has_download --><link rel="icon" href="{{root}}favicon.svg" type="image/svg+xml">
+<link rel="icon" href="{{root}}icon.png" type="image/png" sizes="1024x1024">
+<link rel="apple-touch-icon" href="{{root}}icon.png">
 <link rel="stylesheet" href="{{root}}style.css">
+<script src="{{root}}site.js" defer></script>
 </head>
-<body>
-<header class="bar">
-  <a class="brand" href="{{root}}./"><img src="{{root}}icon.png" alt="" width="28" height="28">Droplet</a>
-  <nav><a href="{{root}}./#install">Install</a><!-- if has_price --><a href="{{root}}./#price">Price</a><!-- end has_price --><a href="{{root}}./#faq">FAQ</a></nav>
+<body class="page-{{page}}">
+<a class="skip" href="#main">Skip to content</a>
+<!-- if preview -->
+<div class="preview-bar" role="note">
+  <div class="wrap"><strong>Preview</strong><p>Local design preview. Downloads and checkout aren’t connected: nothing here installs software, takes a payment or creates a license.</p></div>
+</div>
+<!-- end preview -->
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="brand" href="{{root}}./"><svg class="brand-drop" viewBox="0 0 100 125" aria-hidden="true" focusable="false"><use href="#i-drop" fill="url(#g-drop)"/></svg>Droplet</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="{{root}}./#how">How it works</a>
+      <!-- if has_price --><a href="{{root}}./#price">Pricing</a><!-- end has_price -->
+      <a href="{{root}}./#install">Install</a>
+      <a href="{{root}}./#faq">Questions</a>
+    </nav>
+    <a class="btn btn-primary btn-small" href="{{root}}./#install">Try it free</a>
+  </div>
 </header>
-<main>
+<main id="main" tabindex="-1">
 {{content}}
 </main>
-<footer>
-  <p>&copy; {{year}} {{owner}} &middot; <a href="{{root}}privacy/">Privacy</a> &middot; <a href="{{root}}terms/">Terms</a> &middot; <a href="{{root}}licenses/">Third-party licenses</a> &middot; <a href="{{support_href}}">Support</a></p>
-  <p class="small">Droplet is not affiliated with YouTube or any other video site.</p>
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="{{root}}./"><svg class="brand-drop" viewBox="0 0 100 125" aria-hidden="true" focusable="false"><use href="#i-drop" fill="url(#g-drop)"/></svg>Droplet</a>
+      <p>Saves videos from your Mac’s menu bar.</p>
+    </div>
+    <nav class="footer-nav" aria-label="Legal and support">
+      <a href="{{root}}privacy/">Privacy</a>
+      <a href="{{root}}terms/">Terms</a>
+      <a href="{{root}}licenses/">Third-party licenses</a>
+      <a href="{{support_href}}">Support</a>
+    </nav>
+    <p class="footer-fine">&copy; {{year}} {{owner}}<!-- if has_country -->, {{country}}<!-- end has_country -->. Droplet is not affiliated with YouTube or any other video site.</p>
+  </div>
 </footer>
+<svg class="sprite" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="g-drop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#28d6f0"/><stop offset=".55" stop-color="#1c6eee"/><stop offset="1" stop-color="#5848d6"/>
+    </linearGradient>
+    <filter id="f-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>
+  </defs>
+  <!-- The droplet: the same curves as DropletShape in the app (Views.swift). -->
+  <symbol id="i-drop" viewBox="0 0 100 125"><path d="M50 0Q6 32.5 0 75C0 102.6 22.4 125 50 125S100 102.6 100 75Q94 32.5 50 0Z"/></symbol>
+  <symbol id="i-drop-circle" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M1 12a11 11 0 1 0 22 0a11 11 0 1 0-22 0ZM12 6.38Q8.04 9.3 7.5 13.13C7.5 15.61 9.52 17.63 12 17.63S16.5 15.61 16.5 13.13Q15.96 9.3 12 6.38Z"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M7.4 12.3l3.1 3.1 6.1-6.5" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.6 4.6L19 7.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L11.6 6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.6-1.6"/></g></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v12"/><path d="M6.5 10.5 12 16l5.5-5.5"/><path d="M5 20.5h14"/></g></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 3v8.5"/><path d="M7 5.8a8 8 0 1 0 10 0"/></g></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor"><circle cx="12" cy="12" r="7.2" stroke-width="3.4" stroke-dasharray="2.85 2.8"/><circle cx="12" cy="12" r="5.6" stroke-width="2"/><circle cx="12" cy="12" r="2.1" stroke-width="2"/></g></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 9.5A8 8 0 0 0 5.2 7.6"/><path d="M4.5 14.5a8 8 0 0 0 14.3 1.9"/><path d="M19.8 4.5v5h-5"/><path d="M4.2 19.5v-5h5"/></g></symbol>
+  <symbol id="i-down-circle" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v9.5"/><path d="m8 12.8 4 4 4-4"/></g></symbol>
+</svg>
 </body>
 </html>

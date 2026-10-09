@@ -1,116 +1,376 @@
-<section class="hero">
-  <img src="icon.png" alt="Droplet icon" width="128" height="128">
-  <h1>Save videos straight<br>from your menu bar</h1>
-  <p class="lead">Copy a video link, click the drop at the top of your screen and press
-  Download. Droplet saves it as an MP4 that plays everywhere.</p>
-  <a class="button" href="#install">Install Droplet</a>
-  <!-- if has_checkout --><a class="button secondary" href="{{checkout_url}}">{{buy_label}}</a><!-- end has_checkout -->
-  <p class="small">Free for your first 3 videos &middot; macOS 14 Sonoma or later &middot; {{requirements}}</p>
+<section class="hero wrap" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <!-- if launch_offer -->
+    <p class="offer-pill"><span class="offer-pill-tag">Launch offer</span><span>A full license for <strong>any price from US$0 to {{price}}</strong></span></p>
+    <!-- end launch_offer -->
+    <h1 id="hero-title" class="hero-title"><span>Copy a link.</span> <span>Click the drop.</span> <span class="accent">It’s saved.</span></h1>
+    <p class="hero-lead">A tiny Mac menu-bar app that saves the video from a copied link as an MP4. Your first three saved videos are free.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#install">Try it free</a>
+      <!-- if launch_offer --><a class="btn btn-quiet" href="#price">Choose your price</a><!-- end launch_offer -->
+      <!-- if regular_checkout --><a class="btn btn-quiet" href="{{checkout_url}}">{{buy_label}}</a><!-- end regular_checkout -->
+      <!-- if regular_no_checkout --><a class="btn btn-quiet" href="#how">See how it works</a><!-- end regular_no_checkout -->
+    </div>
+  </div>
+
+  <figure class="stage" data-demo data-icon="idle">
+    <div class="screen" data-demo-screen>
+      <div class="menubar">
+        <div class="mb-menus" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="mb-status" aria-hidden="true"><i></i><i></i></div>
+        <button class="mb-drop" type="button" aria-expanded="true" aria-controls="demo-popover" data-demo-toggle>
+          <svg class="mb-icon-idle" viewBox="0 0 100 125" aria-hidden="true" focusable="false"><use href="#i-drop" fill="currentColor"/></svg>
+          <svg class="mb-icon-busy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-drop-circle" fill="currentColor"/></svg>
+          <svg class="mb-icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-check-circle"/></svg>
+          <span class="visually-hidden">Droplet in the menu bar (demo)</span>
+        </button>
+      </div>
+
+      <div class="popover is-opening" id="demo-popover" role="group" aria-label="Droplet window (demo)" data-demo-popover>
+        <div class="pop-head" aria-hidden="true">
+          <span class="pop-ring"></span><span class="pop-ring"></span>
+          <svg class="pop-drop" viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="url(#g-drop)"/><ellipse cx="27" cy="84" rx="10" ry="17" fill="#fff" opacity=".5" filter="url(#f-soft)"/></svg>
+        </div>
+        <p class="pop-title">Droplet</p>
+        <p class="pop-sub">Clipboard → MP4 in Downloads</p>
+        <div class="pop-body">
+          <div class="pop-view" data-view="idle">
+            <div class="pop-link"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-link"/></svg><div><b>www.youtube.com</b><small>/watch</small></div></div>
+            <button class="pop-trial" type="button" data-demo-trial>3 of 3 free downloads left</button>
+            <button class="pop-download" type="button" data-demo-start><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-download"/></svg><span data-demo-start-label>Download</span></button>
+            <span class="pop-quit" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-power"/></svg>Quit Droplet — stop everything</span>
+          </div>
+          <div class="pop-view" data-view="downloading" hidden>
+            <p class="pop-video" data-demo-title>Fetching video…</p>
+            <div class="pop-progress is-indeterminate" role="progressbar" aria-label="Download progress (demo)" aria-valuemin="0" aria-valuemax="100" data-demo-progress><span class="pop-progress-fill"></span></div>
+            <div class="pop-status"><span class="pop-stage" data-demo-stage>Fetching video…</span><button class="pop-btn" type="button" data-demo-cancel>Cancel</button></div>
+          </div>
+          <div class="pop-view pop-done" data-view="done" hidden>
+            <span class="pop-check"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            <p class="pop-saved">Video saved</p>
+            <p class="pop-folder">Downloads</p>
+            <p class="pop-small">Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film</p>
+            <div class="pop-links">
+              <button class="pop-linkbtn" type="button" data-demo-explain="finder">Show in Finder</button>
+              <button class="pop-linkbtn" type="button" data-demo-new>New download</button>
+              <button class="pop-linkbtn" type="button" data-demo-explain="open">Open video</button>
+            </div>
+            <button class="pop-btn" type="button" data-demo-done>Done</button>
+          </div>
+        </div>
+        <div class="pop-foot" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false"><use href="#i-down-circle"/></svg>
+          <span>Video links → MP4</span>
+          <svg viewBox="0 0 24 24" focusable="false"><use href="#i-gear"/></svg>
+          <svg viewBox="0 0 24 24" focusable="false"><use href="#i-sync"/></svg>
+          <svg viewBox="0 0 24 24" focusable="false"><use href="#i-power"/></svg>
+        </div>
+      </div>
+    </div>
+    <figcaption class="stage-note" data-demo-note>An interactive illustration of Droplet’s menu-bar window, not a screenshot. Press Download to try it.</figcaption>
+    <p class="visually-hidden" aria-live="polite" data-demo-live></p>
+  </figure>
 </section>
 
-<section>
-  <div class="grid">
-    <div class="card"><h3>Lives in your menu bar</h3><p>No window to manage. Click the drop, press Download, and keep working while it saves.</p></div>
-    <div class="card"><h3>MP4 that plays everywhere</h3><p>H.264 video and AAC sound: it opens in QuickTime, Photos, iMovie and on your iPhone.</p></div>
-    <div class="card"><h3>Private</h3><p>No account, no tracking, no ads. Your links and videos never pass through us.</p></div>
-    <div class="card"><h3>Keeps up with the web</h3><p>Video sites change. One click updates Droplet's download engine.</p></div>
+<section id="how" class="section section-tint" aria-labelledby="how-title">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2 id="how-title">From link to MP4 in three steps</h2>
+      <p class="section-lead">Droplet works from the menu bar at the top of your screen, so there is no app window to find first.</p>
+    </div>
+    <ol class="flow">
+      <li class="flow-step reveal">
+        <div class="flow-visual" aria-hidden="true">
+          <div class="flow-visual-copy">
+            <div class="keys"><kbd>⌘</kbd><kbd>C</kbd></div>
+            <div class="chip-link"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-link"/></svg><span><b>www.youtube.com</b>/watch</span></div>
+          </div>
+        </div>
+        <h3>Copy a link</h3>
+        <p>Copy the address of a video you have the right to save, from your browser or any app.</p>
+      </li>
+      <li class="flow-step reveal">
+        <div class="flow-visual flow-visual-click" aria-hidden="true">
+          <div class="mini-bar"><i></i><i></i><span class="mini-drop"><svg viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="currentColor"/></svg></span></div>
+          <span class="mini-pill"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-download"/></svg>Download</span>
+        </div>
+        <h3>Click the drop</h3>
+        <p>Click the drop in your menu bar. Droplet shows the link it found; press Download.</p>
+      </li>
+      <li class="flow-step reveal">
+        <div class="flow-visual" aria-hidden="true">
+          <div class="saved-chip"><span class="pop-check"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-check"/></svg></span><b>Video saved</b><small>Downloads</small></div>
+        </div>
+        <h3>Find the MP4</h3>
+        <p>The video lands in your Downloads folder. Close the window any time: the download keeps going.</p>
+      </li>
+    </ol>
   </div>
 </section>
 
-<section id="install">
-  <h2>Install Droplet</h2>
-  <ol class="steps">
-    <li>Open <strong>Terminal</strong>: press <kbd>&#8984; Command</kbd> + <kbd>Space</kbd>, type <em>Terminal</em> and press <kbd>Return</kbd>.</li>
-    <li>Copy this line, paste it into Terminal and press <kbd>Return</kbd>:
-      <div class="command"><code id="install-command">{{install_command}}</code><button type="button" data-copy="install-command">Copy</button></div></li>
-    <li>Droplet opens, and a little drop appears in your menu bar at the top right of the screen.</li>
-  </ol>
-  <p>To update Droplet later, run the same line again.
-  <a href="install.sh">See exactly what the installer does.</a> It downloads Droplet {{version}} from this
-  website, checks its fingerprint, copies it to Applications and opens it. Nothing else on your Mac is changed.</p>
-  <details>
-    <summary>Prefer a normal download?</summary>
-    <ol class="steps">
-      <li>Download <a href="{{dmg_url}}">{{dmg_name}}</a>, open it and drag Droplet into Applications.</li>
-      <li>Open Droplet. macOS says it cannot verify the developer: click <strong>Done</strong>.</li>
-      <li>Open <strong>System Settings &rarr; Privacy &amp; Security</strong>, scroll down and click
-        <strong>Open Anyway</strong> next to &ldquo;Droplet was blocked&rdquo;, then enter your password.</li>
-    </ol>
-    <p class="small">This is needed once, because Droplet is sold directly instead of through the App Store.
-    The Terminal install above avoids it.</p>
-  </details>
+<section class="section" aria-labelledby="features-title">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2 id="features-title">Made to stay out of your way</h2>
+    </div>
+    <div class="bento">
+      <article class="tile tile-menubar reveal">
+        <div class="tile-text">
+          <h3>Lives in your menu bar</h3>
+          <p>No Dock icon and no window to manage. The drop changes while a video downloads, so you can close Droplet’s window and keep working.</p>
+        </div>
+        <div class="menubar-scene">
+          <div class="scene-bar" aria-hidden="true"><i></i><i></i><span class="scene-drop"><svg viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="currentColor"/></svg></span></div>
+          <ul class="states" aria-label="What the menu-bar icon shows">
+            <li class="state"><span class="state-icon"><svg class="i-drop-small" viewBox="0 0 100 125" aria-hidden="true" focusable="false"><use href="#i-drop" fill="currentColor"/></svg></span>Ready</li>
+            <li class="state state-busy"><span class="state-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-drop-circle" fill="currentColor"/></svg></span>Downloading</li>
+            <li class="state state-done"><span class="state-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-check-circle"/></svg></span>Saved</li>
+          </ul>
+        </div>
+      </article>
+      <article class="tile tile-mp4 reveal">
+        <p class="big-type" aria-hidden="true">MP4</p>
+        <h3>Plays everywhere</h3>
+        <p>H.264 video with AAC sound. It opens in QuickTime, Photos and iMovie and plays on iPhone. Droplet checks every saved file before it counts.</p>
+      </article>
+      <article class="tile tile-private reveal">
+        <ul class="no-list"><li>No account.</li><li>No analytics.</li><li>No ads.</li></ul>
+        <p>Your video links and browser cookies go only to the video site, never to us.</p>
+      </article>
+      <article class="tile tile-update reveal">
+        <div class="footer-chip" aria-hidden="true"><svg class="spin" viewBox="0 0 24 24" focusable="false"><use href="#i-sync"/></svg>Updating yt-dlp…</div>
+        <h3>Keeps up with video sites</h3>
+        <p>Sites change often. One click updates Droplet’s download engine, yt-dlp, and the new version is only used after it has been checked.</p>
+      </article>
+      <article class="tile tile-login reveal">
+        <div class="login-chip" aria-hidden="true"><span class="pop-btn">Use login once</span><span class="browsers">Safari, Chrome, Firefox, Brave, Edge</span></div>
+        <h3>Sign-in only when you say so</h3>
+        <p>If a video needs you to be signed in, Droplet can use your browser’s login for that one download, after you approve it.</p>
+      </article>
+    </div>
+  </div>
 </section>
 
 <!-- if has_price -->
-<section id="price">
-  <h2>Price</h2>
-  <div class="card">
-    <p>Try Droplet free for your first 3 saved videos. Failed or cancelled downloads don't count.</p>
-    <div class="price">{{price}}</div>
-    <p>One-time purchase for unlimited downloads.</p>
-    <!-- if has_checkout -->
-    <p><a class="button" href="{{checkout_url}}">Buy Droplet</a></p>
-    <p class="small">After buying you get a license key by email. Open Droplet, click the gear icon, and paste the
-    key under License. Payment is handled by Lemon Squeezy.</p>
-    <!-- end has_checkout -->
-    <!-- if no_checkout -->
-    <p class="note">License sales open soon. Until then, try Droplet with the free downloads.</p>
-    <!-- end no_checkout -->
+<section id="price" class="section pricing" aria-labelledby="price-title">
+  <div class="wrap">
+    <!-- if launch_offer -->
+    <div class="section-head reveal">
+      <h2 id="price-title">Launch offer: name your price</h2>
+      <p class="section-lead">Every price from US$0 to {{price}} gets the same full license with unlimited downloads. Prefer to try first? Your first three saved videos are free.</p>
+    </div>
+    <!-- end launch_offer -->
+    <!-- if no_launch_offer -->
+    <div class="section-head reveal">
+      <h2 id="price-title">One price, paid once</h2>
+      <p class="section-lead">Try Droplet free for three saved videos. A license unlocks unlimited downloads, with no subscription.</p>
+    </div>
+    <!-- end no_launch_offer -->
+    <div class="price-grid">
+      <!-- if launch_offer -->
+      <form class="offer reveal" data-price-form data-max-cents="{{launch_max_cents}}"<!-- if launch_checkout --> action="{{launch_checkout_url}}" method="get"<!-- end launch_checkout --> novalidate>
+        <div class="offer-head">
+          <h3>Launch license</h3>
+          <p>Choose what you pay. You get the same license at every price.</p>
+        </div>
+        <div class="offer-body">
+          <div class="offer-field">
+            <label for="price-input">Your price in US dollars</label>
+            <div class="price-input-wrap" data-price-wrap>
+              <span class="price-currency" aria-hidden="true">US$</span>
+              <input class="price-input" id="price-input" name="price" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" value="{{launch_max}}" aria-describedby="price-help price-message" data-price-input>
+            </div>
+            <p class="field-help" id="price-help">Any amount from US$0 to {{price}}. Cents are fine.</p>
+            <input class="price-range" type="range" min="0" max="{{launch_max_cents}}" step="1" value="{{launch_max_cents}}" aria-label="Price slider" aria-valuetext="{{price}}" aria-controls="price-input" data-price-range>
+            <div class="price-picks" role="group" aria-label="Quick picks">
+{{price_picks}}
+            </div>
+            <p class="field-message" id="price-message" aria-live="polite" data-price-message>That’s the regular price. Every price gets the same license.</p>
+          </div>
+          <div class="offer-drop" aria-hidden="true">
+            <svg class="drop-meter" viewBox="0 0 100 125" focusable="false" data-price-meter>
+              <defs>
+                <clipPath id="meter-clip"><path d="M50 0Q6 32.5 0 75C0 102.6 22.4 125 50 125S100 102.6 100 75Q94 32.5 50 0Z"/></clipPath>
+                <linearGradient id="meter-water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#28d6f0"/><stop offset=".45" stop-color="#1c6eee"/><stop offset="1" stop-color="#5848d6"/></linearGradient>
+              </defs>
+              <path class="drop-glass" d="M50 0Q6 32.5 0 75C0 102.6 22.4 125 50 125S100 102.6 100 75Q94 32.5 50 0Z"/>
+              <g clip-path="url(#meter-clip)">
+                <g class="drop-water" data-price-water>
+                  <path class="drop-wave" d="M-150 5Q-137.5 0-125 5T-100 5-75 5-50 5-25 5 0 5 25 5 50 5 75 5 100 5 125 5 150 5 175 5 200 5 225 5 250 5V150H-150Z" fill="url(#meter-water)"/>
+                </g>
+              </g>
+              <ellipse class="drop-shine" cx="27" cy="84" rx="9" ry="15" filter="url(#f-soft)"/>
+            </svg>
+            <p class="drop-caption">Same full license at every price</p>
+          </div>
+        </div>
+        <div class="offer-action">
+          <!-- if launch_checkout -->
+          <button class="btn btn-primary" type="submit" data-price-submit><span>Continue with <span data-price-label>{{price}}</span></span><span class="arrow" aria-hidden="true">→</span></button>
+          <p class="small">The next page checks the price again and asks for your email address, where your license key is sent.</p>
+          <!-- end launch_checkout -->
+          <!-- if launch_no_checkout -->
+          <button class="btn btn-primary" type="button" aria-disabled="true" aria-describedby="checkout-status" data-price-submit data-checkout-unavailable><span>Continue with <span data-price-label>{{price}}</span></span></button>
+          <p class="unavailable-note" id="checkout-status" role="status" data-checkout-status>Checkout isn’t open yet. Choosing a price here doesn’t take a payment or create a license.</p>
+          <!-- end launch_no_checkout -->
+          <ol class="offer-steps">
+            <li>Your license key arrives by email after checkout.</li>
+            <li>In Droplet, click the gear icon and paste the key under License.</li>
+            <li>Download without a limit, on your Macs up to the number stated at checkout.</li>
+          </ol>
+        </div>
+      </form>
+      <!-- end launch_offer -->
+      <!-- if no_launch_offer -->
+      <div class="regular reveal">
+        <h3>Droplet license</h3>
+        <p class="regular-price">{{price}}</p>
+        <p>One-time purchase for unlimited downloads.</p>
+        <!-- if regular_checkout -->
+        <a class="btn btn-primary" href="{{checkout_url}}">Buy Droplet</a>
+        <p class="small">After buying you get a license key by email. Open Droplet, click the gear icon, and paste the key under License. Payment is handled by Lemon Squeezy.</p>
+        <!-- end regular_checkout -->
+        <!-- if regular_no_checkout -->
+        <p class="note">License sales open soon. Until then, try Droplet with the free downloads.</p>
+        <!-- end regular_no_checkout -->
+      </div>
+      <!-- end no_launch_offer -->
+      <aside class="trial reveal" aria-labelledby="trial-title">
+        <h3 id="trial-title">Free trial</h3>
+        <p class="trial-count"><b>3</b><span>saved videos, free</span></p>
+        <ul class="ticks">
+          <li>No account and no payment details</li>
+          <li>Failed or cancelled downloads don’t count</li>
+          <li>Ends after the third saved video</li>
+        </ul>
+        <a class="btn btn-quiet" href="#install">Try it free</a>
+        <!-- if launch_offer -->
+        <p class="trial-note">The trial is not the same as a US$0 launch license. The trial needs no checkout but stops after three videos. A launch license, at any price, has no download limit.</p>
+        <!-- end launch_offer -->
+      </aside>
+    </div>
+    <!-- if launch_offer -->
+    <p class="price-foot">After the launch offer, a license costs {{price}}, paid once. <!-- if sales_open -->Payment, receipt and license key are handled by Lemon Squeezy.<!-- end sales_open --><!-- if sales_soon -->When checkout opens, payment, receipt and license key will be handled by Lemon Squeezy.<!-- end sales_soon --></p>
+    <!-- end launch_offer -->
   </div>
 </section>
 <!-- end has_price -->
 
-<section id="faq">
-  <h2>Questions</h2>
-  <details>
-    <summary>Which sites work?</summary>
-    <p>Droplet uses the open-source yt-dlp engine, which supports YouTube and many other sites. Some sites only
-    work when you are signed in; Droplet can use your browser's login for one download if you allow it. Sites
-    change often, so support can come and go. Try your favourite sites with the free downloads before you buy.</p>
-  </details>
-  <details>
-    <summary>Is the Terminal install safe?</summary>
-    <p>The install line runs a short, readable script from this website (<a href="install.sh">open it</a>). It
-    downloads Droplet, checks that the file is exactly the one published here, copies it to Applications and
-    opens it. Many Mac tools install this way. Downloads from a web browser need an extra approval in System
-    Settings for apps sold outside the App Store; the Terminal install doesn't.</p>
-  </details>
-  <details>
-    <summary>Where are my videos saved?</summary>
-    <p>In your Downloads folder. You can choose another folder in Droplet's settings (the gear icon).</p>
-  </details>
-  <details>
-    <summary>How do I update or uninstall Droplet?</summary>
-    <p>To update, run the install line again. To uninstall, quit Droplet from its menu, then drag Droplet from
-    Applications to the Trash. Before you move to a new Mac, use <strong>Deactivate this Mac</strong> in
-    Droplet's license settings so your key works on the new one.</p>
-  </details>
-  <!-- if has_checkout -->
-  <details>
-    <summary>What if Droplet doesn't work for me?</summary>
-    <p>Write to <a href="{{support_href}}">{{support_text}}</a> within {{refund_days}} days of your purchase and
-    you get a full refund.</p>
-  </details>
-  <!-- end has_checkout -->
-  <details>
-    <summary>What do I need?</summary>
-    <p>A Mac with macOS 14 Sonoma or later ({{requirements}}) and an internet connection.</p>
-  </details>
+<section id="install" class="section section-tint" aria-labelledby="install-title">
+  <div class="wrap install-grid">
+    <div class="install-intro reveal">
+      <img class="app-icon" src="icon.png" width="104" height="104" alt="Droplet’s app icon" loading="lazy" decoding="async">
+      <h2 id="install-title">Install in one line</h2>
+      <p>Droplet installs from Terminal, the way many Mac tools do. The same line updates it later.</p>
+      <dl class="requirements">
+        <dt>Needs</dt><dd>macOS 14 Sonoma or later</dd>
+        <dt>Runs on</dt><dd>{{requirements}}</dd>
+        <dt>Also</dt><dd>An internet connection</dd>
+      </dl>
+    </div>
+    <div class="reveal">
+      <ol class="steps">
+        <li><h3>Open Terminal</h3><p>Press <kbd>⌘ Command</kbd> + <kbd>Space</kbd>, type <em>Terminal</em> and press <kbd>Return</kbd>.</p></li>
+        <li>
+          <h3>Paste this line and press Return</h3>
+          <!-- if has_download -->
+          <div class="command"><code id="install-command">{{install_command}}</code><button class="copy-btn" type="button" data-copy="install-command" aria-describedby="copy-status">Copy</button></div>
+          <p class="copy-status" id="copy-status" aria-live="polite" data-copy-status="install-command"></p>
+          <!-- end has_download -->
+          <!-- if no_download -->
+          <div class="command is-unavailable"><code>curl -fsSL <span class="placeholder">website address</span>/install.sh | bash</code><span class="command-badge">Available at launch</span></div>
+          <p class="copy-status">The real install line appears here once Droplet’s website address is set.</p>
+          <!-- end no_download -->
+        </li>
+        <li><h3>Look for the drop</h3><p>Droplet opens and a drop appears in your menu bar, at the top right of the screen.</p></li>
+      </ol>
+      <div class="install-more">
+        <p>To update Droplet later, run the same line again. Your license, free downloads and settings are kept.</p>
+        <!-- if has_download --><p><a href="install.sh">Read the installer first.</a> It downloads Droplet {{version}}, checks its SHA&#8209;256 fingerprint against this release, copies it to Applications and opens it. Nothing else on your Mac is changed.</p><!-- end has_download -->
+        <!-- if no_download --><p>The installer downloads Droplet, checks its SHA&#8209;256 fingerprint against the release, copies it to Applications and opens it. Nothing else on your Mac is changed. You will be able to read it here before running it.</p><!-- end no_download -->
+        <details class="disclosure">
+          <summary>Prefer a normal download?</summary>
+          <ol>
+            <li>Download <!-- if has_download --><a href="{{dmg_url}}">{{dmg_name}}</a><!-- end has_download --><!-- if no_download -->the disk image (available at launch)<!-- end no_download -->, open it and drag Droplet into Applications.</li>
+            <li>Open Droplet. macOS says it can’t verify the developer: click <strong>Done</strong>.</li>
+            <li>Open <strong>System Settings → Privacy &amp; Security</strong>, scroll down and click <strong>Open Anyway</strong> next to “Droplet was blocked”, then enter your password.</li>
+          </ol>
+          <p class="small">This is needed once, because Droplet is sold directly instead of through the App Store. The Terminal install avoids it.</p>
+        </details>
+      </div>
+    </div>
+  </div>
 </section>
 
-<section>
-  <p class="note">Only download videos you have the right to download, and follow the terms of the sites you
-  use. Droplet is a tool for your own videos, Creative Commons works and other content you may save.</p>
+<section id="faq" class="section" aria-labelledby="faq-title">
+  <div class="wrap faq-grid">
+    <div class="faq-aside reveal" id="support">
+      <h2 id="faq-title">Questions</h2>
+      <p>Straight answers about sites, the free trial, installing and privacy.</p>
+      <div class="support-card">
+        <h3>Still stuck?</h3>
+        <a href="{{support_href}}">{{support_text}}</a>
+        <p class="small">It helps to mention your macOS version and what Droplet showed.</p>
+      </div>
+    </div>
+    <div class="faq-list reveal">
+      <details class="faq-item">
+        <summary>Which sites work?</summary>
+        <div><p>Droplet uses the open-source yt-dlp engine, which supports many video sites, including YouTube. Some sites only work when you are signed in; Droplet can use your browser’s login for one download if you allow it. Sites change often, so support can come and go. Try the sites you care about with the free downloads first.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>What counts as one of the free downloads?</summary>
+        <div><p>Only a new video that is fully saved and passes Droplet’s check of the file. Failed or cancelled downloads don’t count. You don’t need an account.</p></div>
+      </details>
+      <!-- if launch_offer -->
+      <details class="faq-item">
+        <summary>What do I get if I choose US$0?</summary>
+        <div><p>The same full license as at {{price}}: unlimited downloads, with a license key sent by email after checkout. You paste the key into Droplet’s settings once.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>How is a US$0 license different from the free trial?</summary>
+        <div><p>The trial needs no checkout and ends after three saved videos. A launch license comes from checkout, at any price you choose up to {{price}}, and has no download limit.</p></div>
+      </details>
+      <!-- end launch_offer -->
+      <details class="faq-item">
+        <summary>What does the Terminal install do?</summary>
+        <div><p>It runs a short, readable script from this website. The script downloads Droplet, checks that the file matches the SHA&#8209;256 fingerprint published with this release, copies it to Applications and opens it. Many Mac tools install this way.</p><p>A copy of Droplet downloaded with a web browser needs a one-time approval in System Settings, because Droplet is sold directly instead of through the App Store. The Terminal install doesn’t need it.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>Where are my videos saved?</summary>
+        <div><p>In your Downloads folder. You can choose another folder in Droplet’s settings (the gear icon, or <kbd>⌘ Command</kbd> + <kbd>,</kbd>). macOS may ask once for permission to save there.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>How do I update, move or uninstall Droplet?</summary>
+        <div><p>To update, run the install line again. To uninstall, quit Droplet from its window, then drag it from Applications to the Trash.</p><p>Before you move to a new Mac, use <strong>Deactivate this Mac</strong> in Droplet’s license settings so your key works on the new one.</p></div>
+      </details>
+      <!-- if sales_open -->
+      <details class="faq-item">
+        <summary>What if Droplet doesn’t work for me?</summary>
+        <div><p>Write to <a href="{{support_href}}">{{support_text}}</a> within {{refund_days}} days of your purchase and you get a full refund.</p></div>
+      </details>
+      <!-- end sales_open -->
+      <details class="faq-item">
+        <summary>Does Droplet collect my data?</summary>
+        <div><p>No. Droplet has no analytics, tracking or ads. Video links and cookies go only to the video site. Checking a license sends only the license key. The <a href="privacy/">privacy policy</a> has the details.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>What do I need?</summary>
+        <div><p>A Mac with macOS 14 Sonoma or later ({{requirements}}) and an internet connection.</p></div>
+      </details>
+    </div>
+  </div>
 </section>
 
-<script>
-document.querySelectorAll('[data-copy]').forEach(function (button) {
-  button.addEventListener('click', function () {
-    var text = document.getElementById(button.getAttribute('data-copy')).textContent;
-    navigator.clipboard.writeText(text).then(function () {
-      button.textContent = 'Copied';
-      setTimeout(function () { button.textContent = 'Copy'; }, 2000);
-    });
-  });
-});
-</script>
+<section class="section conduct" aria-labelledby="conduct-title">
+  <div class="wrap">
+    <div class="conduct-panel reveal">
+      <svg class="conduct-art" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+        <ellipse cx="120" cy="204" rx="112" ry="24"/><ellipse cx="120" cy="204" rx="78" ry="16"/><ellipse cx="120" cy="204" rx="44" ry="9"/>
+        <use class="art-drop" href="#i-drop" x="88" y="44" width="64" height="80" fill="url(#g-drop)"/>
+      </svg>
+      <h2 id="conduct-title">Save what’s yours to save</h2>
+      <p>Only download videos you have the right to download, and follow the terms of the sites you use. Droplet is for your own videos, Creative Commons works and other content you may save.</p>
+    </div>
+  </div>
+</section>
