@@ -192,6 +192,8 @@ class InstallTests(unittest.TestCase):
         executable = self.target / "Contents/MacOS/Droplet"
         shutil.copyfile("/bin/sleep", executable)
         executable.chmod(0o755)
+        # Newer macOS kills a copied system binary; an ad-hoc signature keeps it running.
+        subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", str(executable)], check=True, capture_output=True)
         process = subprocess.Popen([str(executable), "30"])
         try:
             def runner(args):
