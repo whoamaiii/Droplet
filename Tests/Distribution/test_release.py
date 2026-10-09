@@ -86,7 +86,8 @@ class DirectDownloadConfiguration(unittest.TestCase):
     """Without a paid Developer ID: install command + zip from your website."""
 
     run_release = ReleaseConfiguration.run_release
-    DIRECT = {"SIGNING_IDENTITY": "Droplet Signing", "DROPLET_DOWNLOAD_URL": "https://dropletapp.com/downloads/"}
+    DIRECT = {"SIGNING_IDENTITY": "Droplet Signing", "DROPLET_DOWNLOAD_URL": "https://dropletapp.com/downloads/",
+              "DROPLET_OWNER": "Test Person"}
 
     def test_self_signed_direct_build_needs_a_download_folder(self):
         result = self.run_release(self.DIRECT, remove=("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE"))
@@ -95,10 +96,34 @@ class DirectDownloadConfiguration(unittest.TestCase):
         self.assertNotEqual(missing.returncode, 0)
         self.assertIn("DROPLET_DOWNLOAD_URL is required", missing.stderr)
         for bad in ("http://dropletapp.com/downloads", "https://dropletapp.com/my downloads",
-                    "https://dropletapp.com/a;b", "https://dropletapp.com/a|b", "https://dropletapp.com/a'b"):
+                    "https://dropletapp.com/a;b", "https://dropletapp.com/a|b", "https://dropletapp.com/a'b",
+                    "https://dropletapp.com/../droplet", "https://dropletapp.com/.git"):
             with self.subTest(url=bad):
                 self.assertNotEqual(self.run_release({**self.DIRECT, "DROPLET_DOWNLOAD_URL": bad},
                                                      remove=("DEVELOPER_ID_APPLICATION",)).returncode, 0)
+
+    def test_website_needs_a_seller_name_and_a_refund_period(self):
+        direct = ("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE")
+        unnamed = self.run_release(self.DIRECT, remove=direct + ("DROPLET_OWNER",))
+        self.assertNotEqual(unnamed.returncode, 0)
+        self.assertIn("DROPLET_OWNER", unnamed.stderr)
+        self.assertNotEqual(self.run_release({**self.DIRECT, "DROPLET_REFUND_DAYS": "two weeks"}, remove=direct).returncode, 0)
+
+    def test_free_github_hosting_must_match_its_pages_address(self):
+        direct = ("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE")
+        for repo, url in [("tester/tester.github.io", "https://tester.github.io/droplet"),
+                          ("Tester/Tester.github.io", "https://tester.github.io"),
+                          ("tester/droplet-site", "https://tester.github.io/droplet-site")]:
+            with self.subTest(repo=repo):
+                result = self.run_release({**self.DIRECT, "DROPLET_GITHUB_REPO": repo, "DROPLET_DOWNLOAD_URL": url}, remove=direct)
+                self.assertEqual(result.returncode, 0, result.stderr)
+        for repo, url in [("tester/tester.github.io", "https://dropletapp.com/droplet"),
+                          ("tester/droplet-site", "https://tester.github.io/other"),
+                          ("not a repo", "https://tester.github.io/droplet")]:
+            with self.subTest(repo=repo, url=url):
+                result = self.run_release({**self.DIRECT, "DROPLET_GITHUB_REPO": repo, "DROPLET_DOWNLOAD_URL": url}, remove=direct)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("DROPLET_", result.stderr)
 
     def test_signing_identity_choices(self):
         apple_development = self.run_release({**self.DIRECT, "SIGNING_IDENTITY": "Apple Development: Test Person (ABCDE12345)"},

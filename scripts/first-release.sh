@@ -1,14 +1,15 @@
 #!/bin/bash
-# From a fresh checkout to an installable Droplet, in one command:
+# From a fresh checkout to Droplet online, in one command:
 #
-#   ./scripts/first-release.sh
+#   ./scripts/first-release.sh [--new-settings]
 #
 #  1. checks this Mac has Apple's command line tools,
 #  2. runs Droplet's checks (if Homebrew FFmpeg is there for the test videos),
 #  3. creates the free "Droplet Signing" certificate once and backs it up,
 #  4. pins the download engine (yt-dlp, FFmpeg, Deno) if not pinned yet,
-#  5. asks a few questions and writes release.env (once),
-#  6. builds the release into dist/ and offers to install it on this Mac.
+#  5. asks a few questions and writes release.env (once; --new-settings asks again),
+#  6. builds the release and its website into dist/ and offers to install it here,
+#  7. offers to publish it (scripts/publish.sh): free on GitHub, or your own website.
 #
 # Safe to run again: finished steps are skipped. See docs/release/RELEASE.md.
 set -euo pipefail
@@ -26,9 +27,16 @@ ask() { # ask "Question" default → $REPLY
     REPLY="${answer:-${2:-}}"
 }
 
+NEW_SETTINGS=0
+for arg in "$@"; do
+    case "$arg" in
+        --new-settings) NEW_SETTINGS=1 ;;
+        *) fail "unknown option $arg (the only option is --new-settings)" ;;
+    esac
+done
 [ "$(uname -s)" = Darwin ] || fail "run this on your Mac."
 
-step "1/6 Developer tools"
+step "1/7 Developer tools"
 if ! xcode-select -p >/dev/null 2>&1; then
     xcode-select --install >/dev/null 2>&1 || true
     fail "a window to install Apple's Command Line Tools has opened. Install them, then run this script again."
@@ -38,8 +46,10 @@ for tool in swift python3 codesign security; do
 done
 note "OK ($(swift --version 2>/dev/null | head -1))"
 
-step "2/6 Droplet's checks"
-if [ -x /opt/homebrew/bin/ffmpeg ]; then
+step "2/7 Droplet's checks"
+if [ "${DROPLET_SKIP_CHECKS:-0}" = 1 ]; then
+    note "Skipped (DROPLET_SKIP_CHECKS=1)."
+elif [ -x /opt/homebrew/bin/ffmpeg ]; then
     ./scripts/test.sh </dev/null || fail "a check failed. Send the output above to whoever helps you with Droplet."
     python3 -m unittest discover -s Tests/Distribution </dev/null || fail "a distribution check failed (output above)."
 else
@@ -47,7 +57,7 @@ else
     note "The release build below still compiles everything."
 fi
 
-step "3/6 Free signing certificate \"$CERT_NAME\""
+step "3/7 Free signing certificate \"$CERT_NAME\""
 if security find-identity -p codesigning | grep -qF "\"$CERT_NAME\""; then
     note "Already in your keychain."
 else
@@ -95,7 +105,7 @@ EOF
     note "When macOS asks whether codesign may use the \"$CERT_NAME\" key, enter your Mac password and click Always Allow."
 fi
 
-step "4/6 Download engine"
+step "4/7 Download engine"
 if [ -n "$(python3 scripts/fetch_engine.py --print-version)" ]; then
     note "Pinned: yt-dlp $(python3 scripts/fetch_engine.py --print-version)."
 else
@@ -105,52 +115,99 @@ else
     note "  git add engine.lock.json && git commit -m 'Pin download engine'"
 fi
 
-step "5/6 Release settings (release.env)"
+step "5/7 Release settings (release.env)"
+if [ -f release.env ] && [ "$NEW_SETTINGS" = 1 ]; then
+    previous="release.env.old-$(date +%Y%m%d-%H%M%S)"
+    mv release.env "$previous"
+    note "Moved your previous settings to $previous."
+fi
 if [ -f release.env ]; then
-    note "Using your existing release.env."
+    note "Using your existing release.env (to answer the questions again: ./scripts/first-release.sh --new-settings)."
 else
     note "Press Return to accept the suggestion in [brackets]."
+    # Patterns live in variables: macOS's bash 3.2 cannot parse parentheses inside [[ =~ ]].
+    domain_pattern='^[a-z0-9-]+(\.[a-z0-9-]+)+$'
+    login_pattern='^[A-Za-z0-9-]+$'
+    email_pattern='^[^@[:space:]/?]+@[^@[:space:]/?]+\.[A-Za-z]+$'
+    note "Where will customers download Droplet?"
+    note "  1  Free: a website on GitHub, https://<your GitHub name>.github.io/droplet (set up for you)"
+    note "  2  Your own website or domain"
     while :; do
-        ask "Your website's domain, for example dropletapp.com"
-        domain="$(printf '%s' "$REPLY" | tr '[:upper:]' '[:lower:]')"
-        domain="${domain#https://}"; domain="${domain#http://}"; domain="${domain#www.}"; domain="${domain%%/*}"
-        # In a variable: macOS's bash 3.2 cannot parse parentheses inside [[ =~ ]].
-        domain_pattern='^[a-z0-9-]+(\.[a-z0-9-]+)+$'
-        [[ "$domain" =~ $domain_pattern ]] && break
-        note "That doesn't look like a domain; try again."
+        ask "Choose 1 or 2" "1"
+        case "$REPLY" in 1|2) break ;; esac
+        note "Please type 1 or 2."
     done
+    github_repo=""
+    support_default=""
+    if [ "$REPLY" = 1 ]; then
+        guess="$(git config --get remote.origin.url 2>/dev/null || true)"
+        guess="$(printf '%s' "$guess" | sed -nE 's#^.*github\.com[:/]+([A-Za-z0-9-]+)/.*$#\1#p')"
+        while :; do
+            ask "Your GitHub username" "$guess"
+            [[ "$REPLY" =~ $login_pattern ]] && break
+            note "That doesn't look like a GitHub username; try again."
+        done
+        login="$(printf '%s' "$REPLY" | tr '[:upper:]' '[:lower:]')"
+        domain="$login.github.io"
+        github_repo="$login/$login.github.io"
+        download="https://$domain/droplet"
+        note "Your website: $download (from the public GitHub repository $github_repo)."
+    else
+        while :; do
+            ask "Your website's domain, for example dropletapp.com"
+            domain="$(printf '%s' "$REPLY" | tr '[:upper:]' '[:lower:]')"
+            domain="${domain#https://}"; domain="${domain#http://}"; domain="${domain#www.}"; domain="${domain%%/*}"
+            [[ "$domain" =~ $domain_pattern ]] && break
+            note "That doesn't look like a domain; try again."
+        done
+        ask "Web folder for Droplet's website and files" "https://$domain/droplet"; download="${REPLY%/}"
+        support_default="support@$domain"
+    fi
     reversed="$(printf '%s' "$domain" | awk -F. '{for (i = NF; i > 0; i--) printf "%s%s", $i, (i > 1 ? "." : "")}')"
     ask "App identifier (never change it later)" "$reversed.droplet";            bundle_id="$REPLY"
-    ask "Web folder for Droplet's files (install.sh goes here)" "https://$domain/droplet"; download="${REPLY%/}"
-    ask "Support email" "support@$domain";                                      support="$REPLY"
-    ask "Privacy policy page" "https://$domain/droplet/privacy";                privacy="$REPLY"
-    ask "Your name or company (for the copyright line)" "";                     owner="$REPLY"
-    note "Lemon Squeezy (leave empty if your store is not ready yet — you can add it to release.env later):"
+    while :; do
+        ask "Support email for customers (shown on the website)" "$support_default"
+        [[ "$REPLY" =~ $email_pattern ]] && break
+        note "Please enter an email address."
+    done
+    support="$REPLY"
+    while :; do
+        ask "Your name or company (the seller named on the website and in its legal pages)" ""
+        [ -n "$REPLY" ] && break
+        note "The website's terms and privacy policy need the seller's name."
+    done
+    owner="$REPLY"
+    ask "Price (shown on the website; set the same price in Lemon Squeezy)" "US\$4.99"; price="$REPLY"
+    note "Lemon Squeezy (leave empty if your store is not ready yet; you can add it to release.env later):"
     ask "  Store ID (numbers)" "";        store="$REPLY"
     ask "  Product ID (numbers)" "";      product="$REPLY"
     checkout=""
-    if [ -n "$store" ]; then ask "  Checkout link (https://…)" ""; checkout="$REPLY"; fi
-    for value in "$bundle_id" "$download" "$support" "$privacy" "$owner" "$store" "$product" "$checkout"; do
+    if [ -n "$store" ]; then ask "  Checkout link (https://...)" ""; checkout="$REPLY"; fi
+    for value in "$bundle_id" "$download" "$support" "$owner" "$price" "$store" "$product" "$checkout"; do
         [[ "$value" != *"'"* && "$value" != *\\* ]] || fail "please don't use quotes or backslashes in the answers."
     done
     {
-        echo "# Written by scripts/first-release.sh — edit freely. See release.env.example."
+        echo "# Written by scripts/first-release.sh. Edit freely; see release.env.example."
         echo "DROPLET_BUNDLE_ID='$bundle_id'"
         echo "DROPLET_VERSION='1.0.0'"
         echo "DROPLET_BUILD='1'"
+        echo "DROPLET_OWNER='$owner'"
         echo "DROPLET_COPYRIGHT='© $(date +%Y) $owner'"
         echo "SIGNING_IDENTITY='$CERT_NAME'"
         echo "DROPLET_DOWNLOAD_URL='$download'"
-        echo "DROPLET_WEBSITE_URL='https://$domain/droplet'"
+        if [ -n "$github_repo" ]; then echo "DROPLET_GITHUB_REPO='$github_repo'"; fi
+        echo "DROPLET_WEBSITE_URL='$download'"
         echo "DROPLET_SUPPORT='$support'"
-        echo "DROPLET_PRIVACY_URL='$privacy'"
+        echo "DROPLET_PRIVACY_URL='$download/privacy/'"
+        echo "DROPLET_PRICE='$price'"
+        echo "DROPLET_REFUND_DAYS='14'"
         echo "DROPLET_LS_STORE_ID='$store'"
         echo "DROPLET_LS_PRODUCT_ID='$product'"
         echo "DROPLET_LS_VARIANT_ID=''"
         echo "DROPLET_CHECKOUT_URL='$checkout'"
         if [ -z "$store" ]; then
             echo "# No store yet: the trial ends with no way to buy. Fill in the three"
-            echo "# Lemon Squeezy values above and delete this line before publishing."
+            echo "# Lemon Squeezy values above and delete this line before selling."
             echo "ALLOW_UNLICENSED='1'"
         fi
         echo "DROPLET_ARCH='universal'"
@@ -159,7 +216,7 @@ else
 fi
 VALIDATE_ONLY=1 ./scripts/release.sh >/dev/null || fail "release.env needs a fix (message above). Edit it and run this again."
 
-step "6/6 Building the release"
+step "6/7 Building the release"
 ./scripts/release.sh
 # shellcheck disable=SC1091
 version="$(set -a; . ./release.env; echo "$DROPLET_VERSION")"
@@ -173,7 +230,7 @@ read -r -p $'\n   Install this build on this Mac now to try it? [Y/n] ' answer
 if [[ "$answer" != [Nn]* ]]; then
     try="$(mktemp -d)"
     ditto -x -k "$zip" "$try"
-    destination=/Applications
+    destination="${DROPLET_INSTALL_DIR:-/Applications}"   # another folder only for the tests
     [ -w "$destination" ] || { destination="$HOME/Applications"; mkdir -p "$destination"; }
     if pgrep -xq Droplet; then osascript -e 'quit app "Droplet"' >/dev/null 2>&1 || true; sleep 2; fi
     if [ -e "$destination/Droplet.app" ]; then mv "$destination/Droplet.app" "$try/previous-Droplet.app"; fi
@@ -183,8 +240,19 @@ if [[ "$answer" != [Nn]* ]]; then
 fi
 
 # shellcheck disable=SC1091
-download_url="$(set -a; . ./release.env; echo "$DROPLET_DOWNLOAD_URL")"
-printf '\n\033[1mDone.\033[0m Next:\n'
-note "1. Upload everything in dist/ (zip first, install.sh last) to: $download_url/"
-note "2. Put the install command and the text from docs/release/RELEASE.md on your download page."
-note "3. Go through the customer checklist in docs/release/RELEASE.md (step 5)."
+download_url="$(set -a; . ./release.env; echo "${DROPLET_DOWNLOAD_URL%/}")"
+step "7/7 Publish"
+if grep -q "^ALLOW_UNLICENSED='1'" release.env; then
+    note "Not published: this build has no Lemon Squeezy store yet. When your store is ready, add it to"
+    note "release.env (docs/release/RELEASE.md), delete the ALLOW_UNLICENSED line and run this again."
+    note "To put this trial-only version online anyway (for example so Lemon Squeezy can see your website):"
+    note "  ./scripts/publish.sh --trial-only"
+else
+    read -r -p $'\n   Publish Droplet '"$version"' to '"$download_url"' now? [y/N] ' answer
+    if [[ "$answer" == [Yy]* ]]; then
+        ./scripts/publish.sh --yes
+    else
+        note "Publish it when you are ready: ./scripts/publish.sh"
+    fi
+fi
+printf '\n\033[1mDone.\033[0m Before you announce it, go through the customer checklist in docs/release/RELEASE.md.\n'

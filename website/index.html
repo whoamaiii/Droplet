@@ -1,0 +1,116 @@
+<section class="hero">
+  <img src="icon.png" alt="Droplet icon" width="128" height="128">
+  <h1>Save videos straight<br>from your menu bar</h1>
+  <p class="lead">Copy a video link, click the drop at the top of your screen and press
+  Download. Droplet saves it as an MP4 that plays everywhere.</p>
+  <a class="button" href="#install">Install Droplet</a>
+  <!-- if has_checkout --><a class="button secondary" href="{{checkout_url}}">{{buy_label}}</a><!-- end has_checkout -->
+  <p class="small">Free for your first 3 videos &middot; macOS 14 Sonoma or later &middot; {{requirements}}</p>
+</section>
+
+<section>
+  <div class="grid">
+    <div class="card"><h3>Lives in your menu bar</h3><p>No window to manage. Click the drop, press Download, and keep working while it saves.</p></div>
+    <div class="card"><h3>MP4 that plays everywhere</h3><p>H.264 video and AAC sound: it opens in QuickTime, Photos, iMovie and on your iPhone.</p></div>
+    <div class="card"><h3>Private</h3><p>No account, no tracking, no ads. Your links and videos never pass through us.</p></div>
+    <div class="card"><h3>Keeps up with the web</h3><p>Video sites change. One click updates Droplet's download engine.</p></div>
+  </div>
+</section>
+
+<section id="install">
+  <h2>Install Droplet</h2>
+  <ol class="steps">
+    <li>Open <strong>Terminal</strong>: press <kbd>&#8984; Command</kbd> + <kbd>Space</kbd>, type <em>Terminal</em> and press <kbd>Return</kbd>.</li>
+    <li>Copy this line, paste it into Terminal and press <kbd>Return</kbd>:
+      <div class="command"><code id="install-command">{{install_command}}</code><button type="button" data-copy="install-command">Copy</button></div></li>
+    <li>Droplet opens, and a little drop appears in your menu bar at the top right of the screen.</li>
+  </ol>
+  <p>To update Droplet later, run the same line again.
+  <a href="install.sh">See exactly what the installer does.</a> It downloads Droplet {{version}} from this
+  website, checks its fingerprint, copies it to Applications and opens it. Nothing else on your Mac is changed.</p>
+  <details>
+    <summary>Prefer a normal download?</summary>
+    <ol class="steps">
+      <li>Download <a href="{{dmg_url}}">{{dmg_name}}</a>, open it and drag Droplet into Applications.</li>
+      <li>Open Droplet. macOS says it cannot verify the developer: click <strong>Done</strong>.</li>
+      <li>Open <strong>System Settings &rarr; Privacy &amp; Security</strong>, scroll down and click
+        <strong>Open Anyway</strong> next to &ldquo;Droplet was blocked&rdquo;, then enter your password.</li>
+    </ol>
+    <p class="small">This is needed once, because Droplet is sold directly instead of through the App Store.
+    The Terminal install above avoids it.</p>
+  </details>
+</section>
+
+<!-- if has_price -->
+<section id="price">
+  <h2>Price</h2>
+  <div class="card">
+    <p>Try Droplet free for your first 3 saved videos. Failed or cancelled downloads don't count.</p>
+    <div class="price">{{price}}</div>
+    <p>One-time purchase for unlimited downloads.</p>
+    <!-- if has_checkout -->
+    <p><a class="button" href="{{checkout_url}}">Buy Droplet</a></p>
+    <p class="small">After buying you get a license key by email. Open Droplet, click the gear icon, and paste the
+    key under License. Payment is handled by Lemon Squeezy.</p>
+    <!-- end has_checkout -->
+    <!-- if no_checkout -->
+    <p class="note">License sales open soon. Until then, try Droplet with the free downloads.</p>
+    <!-- end no_checkout -->
+  </div>
+</section>
+<!-- end has_price -->
+
+<section id="faq">
+  <h2>Questions</h2>
+  <details>
+    <summary>Which sites work?</summary>
+    <p>Droplet uses the open-source yt-dlp engine, which supports YouTube and many other sites. Some sites only
+    work when you are signed in; Droplet can use your browser's login for one download if you allow it. Sites
+    change often, so support can come and go. Try your favourite sites with the free downloads before you buy.</p>
+  </details>
+  <details>
+    <summary>Is the Terminal install safe?</summary>
+    <p>The install line runs a short, readable script from this website (<a href="install.sh">open it</a>). It
+    downloads Droplet, checks that the file is exactly the one published here, copies it to Applications and
+    opens it. Many Mac tools install this way. Downloads from a web browser need an extra approval in System
+    Settings for apps sold outside the App Store; the Terminal install doesn't.</p>
+  </details>
+  <details>
+    <summary>Where are my videos saved?</summary>
+    <p>In your Downloads folder. You can choose another folder in Droplet's settings (the gear icon).</p>
+  </details>
+  <details>
+    <summary>How do I update or uninstall Droplet?</summary>
+    <p>To update, run the install line again. To uninstall, quit Droplet from its menu, then drag Droplet from
+    Applications to the Trash. Before you move to a new Mac, use <strong>Deactivate this Mac</strong> in
+    Droplet's license settings so your key works on the new one.</p>
+  </details>
+  <!-- if has_checkout -->
+  <details>
+    <summary>What if Droplet doesn't work for me?</summary>
+    <p>Write to <a href="{{support_href}}">{{support_text}}</a> within {{refund_days}} days of your purchase and
+    you get a full refund.</p>
+  </details>
+  <!-- end has_checkout -->
+  <details>
+    <summary>What do I need?</summary>
+    <p>A Mac with macOS 14 Sonoma or later ({{requirements}}) and an internet connection.</p>
+  </details>
+</section>
+
+<section>
+  <p class="note">Only download videos you have the right to download, and follow the terms of the sites you
+  use. Droplet is a tool for your own videos, Creative Commons works and other content you may save.</p>
+</section>
+
+<script>
+document.querySelectorAll('[data-copy]').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var text = document.getElementById(button.getAttribute('data-copy')).textContent;
+    navigator.clipboard.writeText(text).then(function () {
+      button.textContent = 'Copied';
+      setTimeout(function () { button.textContent = 'Copy'; }, 2000);
+    });
+  });
+});
+</script>

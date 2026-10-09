@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<link rel="icon" type="image/png" href="{{root}}icon.png">
+<link rel="stylesheet" href="{{root}}style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="{{root}}./"><img src="{{root}}icon.png" alt="" width="28" height="28">Droplet</a>
+  <nav><a href="{{root}}./#install">Install</a><!-- if has_price --><a href="{{root}}./#price">Price</a><!-- end has_price --><a href="{{root}}./#faq">FAQ</a></nav>
+</header>
+<main>
+{{content}}
+</main>
+<footer>
+  <p>&copy; {{year}} {{owner}} &middot; <a href="{{root}}privacy/">Privacy</a> &middot; <a href="{{root}}terms/">Terms</a> &middot; <a href="{{root}}licenses/">Third-party licenses</a> &middot; <a href="{{support_href}}">Support</a></p>
+  <p class="small">Droplet is not affiliated with YouTube or any other video site.</p>
+</footer>
+</body>
+</html>

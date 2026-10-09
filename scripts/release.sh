@@ -32,6 +32,7 @@ RE_NUMBER='^[0-9]+$'
 RE_HTTPS='^https://[A-Za-z0-9.-]+(/[^[:space:]]*)?$'
 RE_DOWNLOAD_URL='^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~%/+-]*)?$'
 RE_EMAIL='^(mailto:)?[^@[:space:]/?]+@[^@[:space:]/?]+\.[A-Za-z]+$'
+RE_GITHUB_REPO='^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$'
 DROPLET_ARCH="${DROPLET_ARCH:-universal}"
 SKIP_NOTARIZE="${SKIP_NOTARIZE:-0}"
 [ -n "${DROPLET_BUNDLE_ID:-}" ] || fail "DROPLET_BUNDLE_ID is required (for example com.yourdomain.droplet)"
@@ -68,6 +69,21 @@ elif [ -n "$DOWNLOAD_URL" ]; then
 fi
 [ -z "$DOWNLOAD_URL" ] || [[ "$DOWNLOAD_URL" =~ $RE_DOWNLOAD_URL ]] \
     || fail "DROPLET_DOWNLOAD_URL may only use letters, digits and . _ ~ % / + - (it is pasted into the install command)"
+case "$DOWNLOAD_URL" in *"/."*) fail "DROPLET_DOWNLOAD_URL folders may not start with a dot" ;; esac
+# Free hosting on GitHub: the website (with install.sh) on GitHub Pages, the
+# zip and DMG on a GitHub release of the same public repository.
+GITHUB_REPO="${DROPLET_GITHUB_REPO:-}"
+FILES_URL="$DOWNLOAD_URL"
+if [ -n "$GITHUB_REPO" ]; then
+    [[ "$GITHUB_REPO" =~ $RE_GITHUB_REPO ]] || fail "DROPLET_GITHUB_REPO must look like yourname/yourname.github.io"
+    [ -n "$DOWNLOAD_URL" ] || fail "DROPLET_DOWNLOAD_URL is required with DROPLET_GITHUB_REPO"
+    PAGES_BASE="$("$SRC_DIR/scripts/github_pages.sh" base "$GITHUB_REPO")"
+    case "$DOWNLOAD_URL" in
+        "$PAGES_BASE"|"$PAGES_BASE"/*) ;;
+        *) fail "with DROPLET_GITHUB_REPO=$GITHUB_REPO, DROPLET_DOWNLOAD_URL must be $PAGES_BASE or a folder in it, for example $PAGES_BASE/droplet" ;;
+    esac
+    FILES_URL="https://github.com/$GITHUB_REPO/releases/download/v$DROPLET_VERSION"
+fi
 if [ "${ALLOW_UNLICENSED:-0}" != 1 ]; then
     [[ "${DROPLET_LS_STORE_ID:-}" =~ $RE_NUMBER ]] || fail "DROPLET_LS_STORE_ID (numeric Lemon Squeezy store ID) is required; without it the trial ends with no way to buy"
     [[ "${DROPLET_LS_PRODUCT_ID:-}" =~ $RE_NUMBER ]] || fail "DROPLET_LS_PRODUCT_ID (numeric) is required"
@@ -78,6 +94,11 @@ https_url "${DROPLET_WEBSITE_URL:-}" || fail "DROPLET_WEBSITE_URL must be an htt
 https_url "${DROPLET_PRIVACY_URL:-}" || fail "DROPLET_PRIVACY_URL must be an https URL (a privacy policy is required for selling)"
 SUPPORT="${DROPLET_SUPPORT:-}"
 https_url "$SUPPORT" || [[ "$SUPPORT" =~ $RE_EMAIL ]] || fail "DROPLET_SUPPORT must be an email address or https URL"
+if [ -n "$DOWNLOAD_URL" ]; then
+    # The download website is built from these (scripts/build_site.py).
+    [ -n "${DROPLET_OWNER:-}" ] || fail "DROPLET_OWNER is required: your name or company, shown as the seller on the website"
+    [[ "${DROPLET_REFUND_DAYS:-14}" =~ $RE_NUMBER ]] || fail "DROPLET_REFUND_DAYS must be a number of days"
+fi
 ENGINE_VERSION="$(python3 "$SRC_DIR/scripts/fetch_engine.py" --print-version)"
 [ -n "$ENGINE_VERSION" ] || fail "the engine is not pinned — run: python3 scripts/fetch_engine.py --pin --yt-dlp latest --deno latest --ffmpeg"
 if [ "${VALIDATE_ONLY:-0}" = 1 ]; then echo "release: configuration OK"; exit 0; fi
@@ -200,10 +221,21 @@ ZIP="$DIST/Droplet-$DROPLET_VERSION.zip"
 rm -f "$ZIP" "$ZIP.sha256" "$DIST/install.sh"
 ditto -c -k --keepParent "$APP" "$ZIP"
 (cd "$DIST" && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256")
+rm -rf "$DIST/site"
 if [ -n "$DOWNLOAD_URL" ]; then
     python3 "$SRC_DIR/scripts/render_installer.py" --output "$DIST/install.sh" \
-        --version "$DROPLET_VERSION" --zip-url "$DOWNLOAD_URL/$(basename "$ZIP")" \
+        --version "$DROPLET_VERSION" --zip-url "$FILES_URL/$(basename "$ZIP")" \
         --sha256 "$(cut -d' ' -f1 < "$ZIP.sha256")" --bundle-id "$DROPLET_BUNDLE_ID"
+    # The whole website for upload: own hosting gets the zip and DMG in it too.
+    # (Never empty: macOS's bash 3.2 treats an empty "${a[@]}" as unbound.)
+    if [ -n "$GITHUB_REPO" ]; then HOSTING=(--host "GitHub Pages (GitHub, Inc.)"); else HOSTING=(--include-downloads); fi
+    python3 "$SRC_DIR/scripts/build_site.py" --output "$DIST/site" "${HOSTING[@]}" \
+        --version "$DROPLET_VERSION" --download-url "$DOWNLOAD_URL" --files-url "$FILES_URL" \
+        --installer "$DIST/install.sh" --zip "$ZIP" --dmg "$DMG" \
+        --notices "$APP/Contents/Resources/ThirdPartyNotices" --icon "$SRC_DIR/Resources/AppIcon.png" \
+        --owner "$DROPLET_OWNER" --support "$SUPPORT" --price "${DROPLET_PRICE:-}" \
+        --checkout-url "${DROPLET_CHECKOUT_URL:-}" --refund-days "${DROPLET_REFUND_DAYS:-14}" \
+        --address "${DROPLET_ADDRESS:-}" --arch "$DROPLET_ARCH"
 fi
 
 echo
@@ -213,9 +245,8 @@ echo "  $(basename "$ZIP")   $(cut -d' ' -f1 < "$ZIP.sha256")"
 echo "  bundle id $DROPLET_BUNDLE_ID, version $DROPLET_VERSION ($DROPLET_BUILD), engine yt-dlp $ENGINE_VERSION, ${ARCHS[*]}"
 if [ -n "$DOWNLOAD_URL" ]; then
     echo
-    echo "Upload $(basename "$ZIP"), $(basename "$DMG") and install.sh to $DOWNLOAD_URL/"
-    echo "Install command for your download page:"
-    echo "  curl -fsSL $DOWNLOAD_URL/install.sh | bash"
+    echo "Website for $DOWNLOAD_URL/ in $DIST/site. Publish it with: ./scripts/publish.sh"
+    echo "Install command: curl -fsSL $DOWNLOAD_URL/install.sh | bash"
 fi
 if [ "$MODE" = direct ]; then
     echo

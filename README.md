@@ -38,12 +38,14 @@ people who prefer a normal download (they allow it once with System Settings →
 Privacy & Security → Open Anyway).
 
 **Publishing:** on your Mac, run `./scripts/first-release.sh`. It sets up
-signing, pins the engine, asks for your settings and builds the release.
-[docs/release/RELEASE.md](docs/release/RELEASE.md) covers the
-free signing certificate, Lemon Squeezy, the download page text, engine
-pinning, and the customer test checklist. `./scripts/release.sh` builds the
-zip, `install.sh` and DMG into `dist/` for upload. A paid Developer ID can be
-added later for notarization; nothing else changes.
+signing, pins the engine, asks for your settings, builds the app and its
+website (download page, privacy policy, terms, licenses) into `dist/`, and
+publishes it with `./scripts/publish.sh`: free on GitHub Pages, or listed for
+upload to your own web host.
+[docs/release/RELEASE.md](docs/release/RELEASE.md) covers the order of steps,
+the free signing certificate, Lemon Squeezy, hosting, engine pinning and the
+customer test checklist. A paid Developer ID can be added later for
+notarization; nothing else changes.
 
 ## Development and local verification
 

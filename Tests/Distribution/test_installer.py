@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import os
+import shutil
 from pathlib import Path
 import plistlib
 import subprocess
@@ -9,6 +10,9 @@ import unittest
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
+# The bash on the PATH of whoever runs the checks (put macOS's bash 3.2 first to
+# test with it); the scripts themselves run with a minimal PATH.
+BASH = shutil.which("bash")
 spec = importlib.util.spec_from_file_location("render_installer", ROOT / "scripts/render_installer.py")
 renderer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(renderer)
@@ -91,7 +95,7 @@ class InstallerTests(unittest.TestCase):
         # Exactly how customers run it: the script arrives on standard input.
         # Output is decoded leniently so unexpected bytes show up in the failure
         # message instead of crashing the test.
-        result = subprocess.run(["bash"], input=script.read_bytes(), env=environment,
+        result = subprocess.run([BASH], input=script.read_bytes(), env=environment,
                                 capture_output=True, timeout=60)
         result.stdout = result.stdout.decode("utf-8", "backslashreplace")
         result.stderr = result.stderr.decode("utf-8", "backslashreplace")

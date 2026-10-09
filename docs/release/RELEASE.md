@@ -5,12 +5,14 @@ Store, and **without a paid Apple developer account**. Customers install it
 with one line in Terminal:
 
 ```bash
-curl -fsSL https://yourdomain.com/droplet/install.sh | bash
+curl -fsSL https://yourname.github.io/droplet/install.sh | bash
 ```
 
 That command downloads Droplet, checks its SHA-256 fingerprint, puts it in
 Applications and opens it. There are no "unidentified developer" warnings.
-Updating is the same line again.
+Updating is the same line again. The website with that command, the price,
+privacy policy and terms is generated for you, and can be hosted for free on
+GitHub Pages or uploaded to your own web host.
 
 ## Quick start: one command on your Mac
 
@@ -18,11 +20,33 @@ Updating is the same line again.
 ./scripts/first-release.sh
 ```
 
-It does steps 1–3 below for you: checks the developer tools, runs the
+It does steps 1–4 below for you: checks the developer tools, runs the
 checks, creates and backs up the free signing certificate, pins the engine,
-asks a few questions to write `release.env`, builds `dist/`, and offers to
-install the result on your Mac. Run it again any time; finished steps are
-skipped. Then upload (step 4) and test (step 5).
+asks a few questions to write `release.env` (hosting, app identifier, support
+email, your name, price, Lemon Squeezy IDs), builds the app and its website
+into `dist/`, offers to install it on your Mac, and offers to publish it. Run
+it again any time; finished steps are skipped (`--new-settings` asks the
+questions again and keeps the old answers as `release.env.old-…`). Then test
+like a customer (step 5).
+
+### The order that works best
+
+1. Run `./scripts/first-release.sh` and choose the free GitHub website. Leave
+   the Lemon Squeezy questions empty for now.
+2. Put that trial-only version online: `./scripts/publish.sh --trial-only`.
+   Install it with the command from the live site on your Mac (the
+   customer's path). The page says "License sales open soon".
+3. Sign up at Lemon Squeezy and apply for store activation, giving that
+   website: reviewers want to see the product, price, terms, privacy policy
+   and contact.
+4. While you wait, set up the product in **test mode** and test a purchase
+   with a local build (see "Lemon Squeezy" below).
+5. Once the store is live: put the **live** IDs and checkout link in
+   `release.env`, delete the `ALLOW_UNLICENSED` line, raise `DROPLET_VERSION`
+   (for example to 1.0.1) and `DROPLET_BUILD`, then run
+   `./scripts/first-release.sh` again and answer **y** to publish. Everyone
+   who installed the trial version gets the Buy button by running the install
+   command again.
 
 ## Why the Terminal install (and no US$99 Apple account)
 
@@ -73,7 +97,8 @@ asks customers again for folder and Keychain access after every update.)
 ### App identity
 
 Pick a permanent bundle identifier from a domain you control, for example
-`com.yourdomain.droplet`. Never change it after the first public release:
+`com.yourdomain.droplet`, or `io.github.yourname.droplet` with the free GitHub
+website (the wizard suggests it). Never change it after the first public release:
 settings, the Keychain license and the login item are tied to it. The
 development builds use `local.quentinthiessen.droplet` and the release script
 refuses `local.*`, `com.example*` and `*.preview` identifiers.
@@ -92,8 +117,14 @@ refuses `local.*`, `com.example*` and `*.preview` identifiers.
    - **Product ID** and optional **Variant ID** — numeric IDs of the product.
      Leave the variant empty to accept every variant of the product.
    - **Checkout link** — the product's Share / buy URL.
-4. Use **test mode** for your first end-to-end test: buy with a test card,
-   take the key from the receipt email, activate it in Droplet, deactivate it.
+4. Use **test mode** for your first end-to-end test: put the test-mode IDs
+   and checkout link in `release.env`, build, install it on your Mac (answer
+   **n** to publishing), buy with a test card, take the key from the receipt
+   email, activate it in Droplet, deactivate it.
+5. After the store is activated, copy the product to **live mode** (the
+   product's menu → Copy to live mode). Live mode has its **own product ID
+   and checkout link**: put those in `release.env` before the public build.
+   A build only accepts keys of the product IDs it was built with.
 
 How the app uses it: the key is activated with Lemon Squeezy's public License
 API (no secret API key is shipped). The app checks that the key belongs to
@@ -105,54 +136,50 @@ and **Deactivate this Mac**.
 
 ### Your website
 
-Pick one https folder for Droplet's files, for example
-`https://yourdomain.com/droplet/`. That is `DROPLET_DOWNLOAD_URL`; the
-install command is always `<that folder>/install.sh`, so it never changes
-between versions. Any static hosting works (your web host, GitHub Pages,
-Netlify, Cloudflare Pages…), as long as it serves https.
+`./scripts/release.sh` builds the whole website into `dist/site/` from the
+templates in `website/` and the values in `release.env`:
 
-The download page needs:
+- the **download page** with the install command (and a copy button), the
+  DMG as a fallback, what Droplet does, the trial (3 saved videos), the
+  price and Buy button (or "License sales open soon" without a store), the
+  requirements (macOS 14 Sonoma or later), questions and answers, and a
+  note to only download videos you have the right to download;
+- `privacy/`: the privacy policy (from
+  [PRIVACY-POLICY-TEMPLATE.md](PRIVACY-POLICY-TEMPLATE.md));
+- `terms/`: terms of use, with your refund promise (`DROPLET_REFUND_DAYS`,
+  14 by default) and Lemon Squeezy as merchant of record;
+- `licenses/`: the third-party licenses and source links of the bundled
+  programs, with the written source offer;
+- `install.sh` and, for your own web host, the zip and DMG.
 
-- The install command, with how to open Terminal (copy-paste text below).
-- System requirements: **macOS 14 Sonoma or later, Apple Silicon or Intel.**
-- What the trial is (3 successfully saved videos) and the price.
-- A **privacy policy** page (draft: [PRIVACY-POLICY-TEMPLATE.md](PRIVACY-POLICY-TEMPLATE.md)).
-- Terms / refund policy (Lemon Squeezy is the merchant of record; link their
-  buyer terms and state your refund promise).
-- A support email address.
-- A clear statement that customers may only download videos they have the
-  right to download, and that site compatibility can change.
-- Third-party licenses and a source offer for the bundled GPL programs
-  (the app shows them under Settings → Third-party licenses; link the same
-  texts from the site).
+The seller name (`DROPLET_OWNER`), support email and price come from
+`release.env`; `DROPLET_ADDRESS` adds a postal address to the legal pages if
+your country requires one. Have the texts checked for your country (this is
+not legal advice). To change wording, edit `website/` and build again.
 
-Copy-paste text for the download page (replace the address):
+**Free hosting on GitHub (recommended).** The wizard sets
+`DROPLET_GITHUB_REPO=yourname/yourname.github.io` and
+`DROPLET_DOWNLOAD_URL=https://yourname.github.io/droplet`.
+`./scripts/publish.sh` then creates that **public** repository if needed,
+uploads the zip and DMG to a GitHub release (no size limit worries), puts the
+website in its `droplet/` folder, turns on GitHub Pages, waits until the
+install command works online and downloads the zip once to check its
+fingerprint. It needs GitHub's command-line tool once:
 
-```html
-<h2>Install Droplet</h2>
-<ol>
-  <li>Open <strong>Terminal</strong>: press <kbd>⌘ Command</kbd> + <kbd>Space</kbd>,
-      type <em>Terminal</em> and press <kbd>Return</kbd>.</li>
-  <li>Paste this line and press <kbd>Return</kbd>:
-    <pre><code>curl -fsSL https://yourdomain.com/droplet/install.sh | bash</code></pre></li>
-  <li>Droplet opens and a little drop appears in your menu bar (top right).</li>
-</ol>
-<p>To update Droplet later, run the same line again. Requires macOS 14 Sonoma
-or later on Apple Silicon or Intel.
-<a href="https://yourdomain.com/droplet/install.sh">See exactly what the installer does.</a></p>
-
-<details>
-  <summary>Prefer a normal download?</summary>
-  <ol>
-    <li>Download <a href="https://yourdomain.com/droplet/Droplet-1.0.0.dmg">Droplet-1.0.0.dmg</a>,
-        open it and drag Droplet into Applications.</li>
-    <li>Open Droplet. macOS says it cannot verify the developer — click <strong>Done</strong>.</li>
-    <li>Open <strong>System Settings → Privacy &amp; Security</strong>, scroll down and click
-        <strong>Open Anyway</strong> next to "Droplet was blocked", then enter your password.</li>
-  </ol>
-  <p>This is needed once, because Droplet is sold directly rather than through the App Store.</p>
-</details>
+```bash
+brew install gh
+gh auth login        # GitHub.com → HTTPS → log in with a web browser
 ```
+
+Only the website repository is public; Droplet's source code stays private.
+Other files in an existing `yourname.github.io` repository are kept.
+
+**Your own web host.** Pick one https folder for Droplet, for example
+`https://yourdomain.com/droplet/`. That is `DROPLET_DOWNLOAD_URL`; the install
+command is always `<that folder>/install.sh`, so it never changes between
+versions. `./scripts/publish.sh` tells you to upload everything in
+`dist/site/` there (zip and DMG first, `install.sh` last), and
+`./scripts/publish.sh --check` then verifies what is online.
 
 ## 2. Pin the download engine
 
@@ -196,8 +223,8 @@ universal app.
 ## 3. Build
 
 ```bash
-cp release.env.example release.env   # once; it is git-ignored
-$EDITOR release.env                  # bundle ID, version, certificate name, download folder, store IDs, links
+cp release.env.example release.env   # once (or let first-release.sh write it); git-ignored
+$EDITOR release.env                  # bundle ID, version, certificate, website, seller, price, store IDs
 ./scripts/release.sh
 ```
 
@@ -215,6 +242,7 @@ then:
      filled in,
    - `Droplet-<version>.dmg` — for the "normal download" option,
    - a `.sha256` file for the zip and the DMG,
+   - `site/` — the website to publish (see "Your website"),
    and prints the install command.
 
 With a paid `Developer ID Application: …` identity and `NOTARY_PROFILE`, the
@@ -222,26 +250,29 @@ same run also uses the hardened runtime (with the minimal helper entitlements
 in `Resources/Entitlements/`), notarizes and staples the app and the DMG, and
 checks both with Gatekeeper.
 
-## 4. Upload
-
-Upload **`Droplet-<version>.zip`, `install.sh` and `Droplet-<version>.dmg`**
-from `dist/` into your `DROPLET_DOWNLOAD_URL` folder. Upload the zip first and
-`install.sh` last, so the installer never points at a file that is not there
-yet. Keep older zips for a while: anyone halfway through an install still
-finishes it.
-
-Check it from any Mac:
+## 4. Publish
 
 ```bash
-curl -fsSL https://yourdomain.com/droplet/install.sh | head -15   # shows the new version
+./scripts/publish.sh               # asks before anything goes public
+./scripts/publish.sh --check       # only check what is online
+./scripts/publish.sh --trial-only  # also allow a build without a store
 ```
+
+It first checks that `dist/` really is the build `release.env` describes and
+refuses a build without a Lemon Squeezy store unless you say `--trial-only`.
+Files go online in a safe order: zip and DMG first, website and `install.sh`
+last, so the install command never points at a file that is not there yet.
+Publishing the same version again asks before replacing its files. At the
+end it prints the live download page and install command.
 
 ## 5. Test like a customer (before announcing a release)
 
 On a Mac **without** Homebrew or Xcode (or a fresh macOS user account):
 
-- [ ] Paste the install command into Terminal: Droplet installs into
-      Applications and opens with no security warning.
+- [ ] Open the live download page: the install command, price, privacy
+      policy, terms and license links are right.
+- [ ] Copy the install command from the page into Terminal: Droplet installs
+      into Applications and opens with no security warning.
 - [ ] The welcome window appears and the droplet is in the menu bar.
 - [ ] Download a video you have the right to download from YouTube and from
       at least two other sites you plan to advertise. Each saves as a
@@ -268,8 +299,9 @@ confirm the refunded key stops working after the next daily check.
 
 1. Increase `DROPLET_VERSION` and `DROPLET_BUILD` in `release.env`.
 2. Re-pin the engine (step 2) and commit `engine.lock.json`.
-3. `./scripts/release.sh`, upload (step 4), run at least the install, one
-   download and the license check from the checklist above.
+3. `./scripts/release.sh`, then `./scripts/publish.sh` (step 4), and run at
+   least the install, one download and the license check from the checklist
+   above.
 
 Customers update by running the install command again. When a site breaks,
 they can also press the update button in the bubble: it updates yt-dlp in the

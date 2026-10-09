@@ -77,3 +77,12 @@ WHO-226 isolates the engine environment, validates all URL entry points, classif
   It verifies the zip's SHA-256, never replaces a different app's bundle, and
   quits a running Droplet before updating. A Developer ID identity switches the
   same script to hardened runtime + notarization.
+- The website is generated, not hand-written: `scripts/build_site.py` fills the
+  templates in `website/` (download page, privacy, terms, licenses) from
+  `release.env` into `dist/site/`, HTML-escaping every value and accepting only
+  https/mailto links. `scripts/publish.sh` publishes it: with
+  `DROPLET_GITHUB_REPO`, zip and DMG to a GitHub release first, then the site
+  and `install.sh` to GitHub Pages (`scripts/github_pages.sh` maps the
+  repository to its address), then it checks the live install.sh and the zip's
+  fingerprint. It refuses a stale `dist/` or, unless `--trial-only`, a build
+  without a store. `scripts/first-release.sh` drives all of it.
