@@ -213,6 +213,38 @@ class EnginePinning(unittest.TestCase):
             self.assertEqual(stable["sha256"], digest(b"payload"))
             self.assertTrue((module.CACHE / digest(b"payload")).exists(), "Pinned files are cached for the release")
 
+    def test_ffmpeg_pin_records_the_release_named_in_the_build_address(self):
+        import argparse
+        import importlib.util
+        from unittest.mock import patch
+        spec = importlib.util.spec_from_file_location("fetch_engine", FETCH)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        builds = {"arm64": "1789931890_9.0.2", "amd64": "1789931006_9.0.2"}
+
+        def fake_pin(url, resolve_redirect=False):
+            arch = "arm64" if "/arm64/" in url else "amd64"
+            return {"url": url.replace("redirect/latest", "download").replace("release", builds[arch]), "sha256": "0" * 64}
+
+        def pin(download):
+            lock = {"ffmpeg": {"download": download, "source": "https://ffmpeg.org/download.html#releases", "version": ""}}
+            with tempfile.TemporaryDirectory() as raw:
+                module.LOCK = Path(raw) / "engine.lock.json"
+                with patch.object(module, "pin_url", fake_pin), patch("builtins.print"):
+                    module.pin(lock, argparse.Namespace(yt_dlp=None, deno=None, ffmpeg=True))
+                return json.loads(module.LOCK.read_text())["ffmpeg"]
+
+        base = "https://ffmpeg.example.invalid/redirect/latest/macos"
+        download = {arch: {tool: f"{base}/{folder}/release/{tool}.zip" for tool in ("ffmpeg", "ffprobe")}
+                    for arch, folder in (("arm64", "arm64"), ("x86_64", "amd64"))}
+        pinned = pin(download)
+        self.assertEqual(pinned["version"], "9.0.2")
+        self.assertEqual(pinned["source"], "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz")
+        builds["amd64"] = "1789931006_9.0.1"
+        mixed = pin(download)
+        self.assertEqual(mixed["version"], "", "Different releases per architecture are left for a person to record")
+        self.assertEqual(mixed["source"], "https://ffmpeg.org/download.html#releases")
+
 
 if __name__ == "__main__":
     unittest.main()

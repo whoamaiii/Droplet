@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import subprocess
@@ -141,7 +142,9 @@ def assemble(lock, output, notices, arches):
     sources = {name: (lock.get(name) or {}).get("source", "") for name in ("yt-dlp", "ffmpeg", "deno")}
     (notices / "SOURCES.txt").write_text(
         "Corresponding source for the bundled programs:\n\n"
-        + "".join(f"{name} {lock.get(name, {}).get('version', '')}: {url}\n" for name, url in sources.items() if url))
+        + "".join(f"{name} {lock.get(name, {}).get('version', '')}: {url}\n" for name, url in sources.items() if url)
+        + "".join(f"{name} build configuration: {(lock.get(name) or {})['build']}\n"
+                  for name in sources if (lock.get(name) or {}).get("build")))
     return ytdlp["version"]
 
 
@@ -218,7 +221,18 @@ def pin(lock, args):
             ffmpeg[arch] = {tool: pin_url(sources[arch][tool], resolve_redirect=True) for tool in ("ffmpeg", "ffprobe")}
         if ffmpeg.get("license_url"):
             ffmpeg["license"] = pin_url(ffmpeg["license_url"])
-        print("ffmpeg pinned from the URLs in ffmpeg.download")
+        # Versioned build addresses end in ".../<build>_<version>/<tool>.zip";
+        # record that release so SOURCES.txt names the exact FFmpeg source.
+        found = [re.search(r"_(\d+(?:\.\d+)+)/[^/]+$", ffmpeg[arch][tool]["url"])
+                 for arch in ARCHES for tool in ("ffmpeg", "ffprobe")]
+        versions = {match.group(1) for match in found if match}
+        if all(found) and len(versions) == 1:
+            ffmpeg["version"] = versions.pop()
+            ffmpeg["source"] = f"https://ffmpeg.org/releases/ffmpeg-{ffmpeg['version']}.tar.xz"
+            print(f"ffmpeg pinned at {ffmpeg['version']}")
+        else:
+            print("ffmpeg pinned. Its version is not in the download addresses: set ffmpeg.version and "
+                  "ffmpeg.source in engine.lock.json by hand (see docs/release/RELEASE.md).")
     LOCK.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n")
     print(f"Updated {LOCK}. Review the diff before committing.")
 

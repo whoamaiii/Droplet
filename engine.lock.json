@@ -27,6 +27,7 @@
         "url": "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffprobe.zip"
       }
     },
+    "build": "https://git.martin-riedl.de/ffmpeg/build-script",
     "download": {
       "arm64": {
         "ffmpeg": "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip",
@@ -42,9 +43,9 @@
       "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/COPYING.GPLv3"
     },
     "license_url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/COPYING.GPLv3",
-    "note": "These prebuilt FFmpeg binaries are GPL builds. Droplet only remuxes (no encoding), so an LGPL build also works; see docs/release/RELEASE.md before choosing.",
-    "source": "https://ffmpeg.org/download.html#releases",
-    "version": "",
+    "note": "These prebuilt FFmpeg binaries are GPL builds (they include GPL libraries such as x264 and x265), made with the build script in ffmpeg.build. Droplet only remuxes (no encoding), so an LGPL build also works; see docs/release/RELEASE.md before choosing.",
+    "source": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+    "version": "9.0.2",
     "x86_64": {
       "ffmpeg": {
         "sha256": "7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4",

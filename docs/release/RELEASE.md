@@ -172,11 +172,21 @@ publishes. Re-pin before every release so customers start with a current yt-dlp.
 prebuilt GPL FFmpeg builds for Apple Silicon and Intel. Droplet only remuxes
 (copies H.264/AAC streams into MP4, no encoding), so an LGPL build is enough
 and has lighter obligations. Whichever you ship, you must include its license
-and offer its source (`SOURCES.txt` in the app lists the links). After pinning,
-set `ffmpeg.version` and `ffmpeg.source` in `engine.lock.json` to the **exact**
-source release and build configuration of the binaries you ship (for a GPL
-build, the generic ffmpeg.org page is not enough). Replace the
-`ffmpeg.download` URLs if you build or choose a different FFmpeg.
+and offer its source (`SOURCES.txt` in the app lists the links). Pinning reads
+the FFmpeg release from the build address and records it in `ffmpeg.version`
+and `ffmpeg.source` (the matching ffmpeg.org source archive); `ffmpeg.build`
+names the public build script these binaries come from. If the version cannot
+be read (other download addresses), set those fields by hand to the **exact**
+source release and build configuration of the binaries you ship. Replace the
+`ffmpeg.download` URLs and `ffmpeg.build` if you build or choose a different
+FFmpeg. The GPL builds also contain libraries such as x264; for the strongest
+position, keep a copy of the complete source you ship (FFmpeg plus the
+libraries the build script downloads) and host it next to your releases, or
+ship an LGPL build instead. This is not legal advice.
+
+The FFmpeg builder has said it will stop making Intel builds. The pinned Intel
+files keep working; if they ever disappear, build Apple Silicon only
+(`DROPLET_ARCH=arm64`) or pick another Intel FFmpeg.
 
 **Size.** Deno is large (roughly 100 MB per architecture). Without it, many
 YouTube videos fail. To make a smaller download you can build separate Apple
