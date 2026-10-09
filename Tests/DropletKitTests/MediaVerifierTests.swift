@@ -10,11 +10,14 @@ struct MediaVerifierTests {
             let file = root.appendingPathComponent(name)
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/ffmpeg")
-            p.arguments = ["-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=12"]
-                + (audio ? ["-f", "lavfi", "-i", "sine=frequency=440"] : [])
-                + ["-t", "0.25", "-c:v", codec] + (audio ? ["-c:a", "aac"] : ["-an"])
-                + (brand.map { ["-brand", $0] } ?? [])
-                + [file.path]
+            // Built in steps: one long `+` chain is too slow for the Swift 6 type checker.
+            var arguments = ["-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=12"]
+            if audio { arguments += ["-f", "lavfi", "-i", "sine=frequency=440"] }
+            arguments += ["-t", "0.25", "-c:v", codec]
+            arguments += audio ? ["-c:a", "aac"] : ["-an"]
+            if let brand { arguments += ["-brand", brand] }
+            arguments.append(file.path)
+            p.arguments = arguments
             p.standardOutput = FileHandle.nullDevice
             p.standardError = FileHandle.nullDevice
             try p.run()
