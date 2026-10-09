@@ -109,6 +109,23 @@ class DirectDownloadConfiguration(unittest.TestCase):
         self.assertIn("DROPLET_OWNER", unnamed.stderr)
         self.assertNotEqual(self.run_release({**self.DIRECT, "DROPLET_REFUND_DAYS": "two weeks"}, remove=direct).returncode, 0)
 
+    def test_launch_offer_settings_are_checked_before_the_build(self):
+        direct = ("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE")
+        # The helper writes "value": an unescaped $ would be read as a shell variable.
+        launch = {**self.DIRECT, "DROPLET_LAUNCH_OFFER": "1", "DROPLET_PRICE": "US\\$4.99", "DROPLET_COUNTRY": "Norway",
+                  "DROPLET_LAUNCH_CHECKOUT_URL": "https://pay.dropletapp.com/droplet"}
+        result = self.run_release(launch, remove=direct)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for bad in ({"DROPLET_LAUNCH_OFFER": "yes"}, {"DROPLET_PRICE": "US\\$0"}, {"DROPLET_PRICE": "US\\$0.00"},
+                    {"DROPLET_PRICE": "4.99"}, {"DROPLET_LAUNCH_CHECKOUT_URL": "http://pay.dropletapp.com/droplet"},
+                    {"DROPLET_LAUNCH_CHECKOUT_URL": "https://pay.dropletapp.com/droplet?price=1"}):
+            with self.subTest(bad=bad):
+                result = self.run_release({**launch, **bad}, remove=direct)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("DROPLET_", result.stderr)
+        regular = self.run_release({**self.DIRECT, "DROPLET_LAUNCH_OFFER": "0", "DROPLET_PRICE": ""}, remove=direct)
+        self.assertEqual(regular.returncode, 0, regular.stderr)
+
     def test_free_github_hosting_must_match_its_pages_address(self):
         direct = ("DEVELOPER_ID_APPLICATION", "NOTARY_PROFILE")
         for repo, url in [("tester/tester.github.io", "https://tester.github.io/droplet"),

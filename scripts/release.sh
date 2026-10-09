@@ -33,6 +33,8 @@ RE_HTTPS='^https://[A-Za-z0-9.-]+(/[^[:space:]]*)?$'
 RE_DOWNLOAD_URL='^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~%/+-]*)?$'
 RE_EMAIL='^(mailto:)?[^@[:space:]/?]+@[^@[:space:]/?]+\.[A-Za-z]+$'
 RE_GITHUB_REPO='^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$'
+RE_PRICE='^US\$([1-9][0-9]{0,2}(\.[0-9]{2})?|0\.(0[1-9]|[1-9][0-9]))$'
+RE_LAUNCH_CHECKOUT='^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~%/+-]*)?$'
 DROPLET_ARCH="${DROPLET_ARCH:-universal}"
 SKIP_NOTARIZE="${SKIP_NOTARIZE:-0}"
 [ -n "${DROPLET_BUNDLE_ID:-}" ] || fail "DROPLET_BUNDLE_ID is required (for example com.yourdomain.droplet)"
@@ -98,6 +100,14 @@ if [ -n "$DOWNLOAD_URL" ]; then
     # The download website is built from these (scripts/build_site.py).
     [ -n "${DROPLET_OWNER:-}" ] || fail "DROPLET_OWNER is required: your name or company, shown as the seller on the website"
     [[ "${DROPLET_REFUND_DAYS:-14}" =~ $RE_NUMBER ]] || fail "DROPLET_REFUND_DAYS must be a number of days"
+    case "${DROPLET_LAUNCH_OFFER:-0}" in
+        0) ;;
+        1) [[ "${DROPLET_PRICE:-}" =~ $RE_PRICE ]] \
+               || fail "DROPLET_LAUNCH_OFFER=1 needs DROPLET_PRICE like 'US\$4.99' (in single quotes): customers choose a price from US\$0 up to it" ;;
+        *) fail "DROPLET_LAUNCH_OFFER must be 1 (customers choose a price from US\$0 up to DROPLET_PRICE) or 0" ;;
+    esac
+    [ -z "${DROPLET_LAUNCH_CHECKOUT_URL:-}" ] || [[ "$DROPLET_LAUNCH_CHECKOUT_URL" =~ $RE_LAUNCH_CHECKOUT ]] \
+        || fail "DROPLET_LAUNCH_CHECKOUT_URL must be an https address without ? or #: it receives the chosen price as ?price=2.50"
 fi
 ENGINE_VERSION="$(python3 "$SRC_DIR/scripts/fetch_engine.py" --print-version)"
 [ -n "$ENGINE_VERSION" ] || fail "the engine is not pinned — run: python3 scripts/fetch_engine.py --pin --yt-dlp latest --deno latest --ffmpeg"
@@ -235,7 +245,8 @@ if [ -n "$DOWNLOAD_URL" ]; then
         --notices "$APP/Contents/Resources/ThirdPartyNotices" --icon "$SRC_DIR/Resources/AppIcon.png" \
         --owner "$DROPLET_OWNER" --support "$SUPPORT" --price "${DROPLET_PRICE:-}" \
         --checkout-url "${DROPLET_CHECKOUT_URL:-}" --refund-days "${DROPLET_REFUND_DAYS:-14}" \
-        --address "${DROPLET_ADDRESS:-}" --arch "$DROPLET_ARCH"
+        --address "${DROPLET_ADDRESS:-}" --arch "$DROPLET_ARCH" --country "${DROPLET_COUNTRY:-}" \
+        --launch-offer "${DROPLET_LAUNCH_OFFER:-0}" --launch-checkout-url "${DROPLET_LAUNCH_CHECKOUT_URL:-}"
 fi
 
 echo

@@ -1,6 +1,7 @@
 from html.parser import HTMLParser
 import hashlib
 import importlib.util
+import json
 import os
 import shutil
 from pathlib import Path
@@ -104,8 +105,8 @@ class WebsiteTests(unittest.TestCase):
             self.assertNotIn("{{", text, page)
             self.assertNotIn("<!-- if", text, page)
 
-    def test_every_relative_link_points_to_a_file(self):
-        for page in self.site.rglob("*.html"):
+    def assert_links_resolve(self, site):
+        for page in site.rglob("*.html"):
             parser = Links()
             parser.feed(page.read_text())
             for link in parser.links:
@@ -114,8 +115,11 @@ class WebsiteTests(unittest.TestCase):
                 target = (page.parent / link.split("#")[0]).resolve()
                 if target.is_dir():
                     target = target / "index.html"
-                with self.subTest(page=page.relative_to(self.site), link=link):
+                with self.subTest(page=page.relative_to(site), link=link):
                     self.assertTrue(target.is_file())
+
+    def test_every_relative_link_points_to_a_file(self):
+        self.assert_links_resolve(self.site)
 
     def test_values_cannot_add_markup_or_unsafe_links(self):
         own = Path(self.temp.name) / "own"
@@ -143,6 +147,111 @@ class WebsiteTests(unittest.TestCase):
         index = (later / "index.html").read_text()
         self.assertIn("License sales open soon", index)
         self.assertIn("US$4.99", index)
+
+    def test_launch_offer_lets_customers_choose_from_zero_to_the_price(self):
+        launch = Path(self.temp.name) / "launch"
+        result = build_site(launch, self.dist / "install.sh", self.dist, country="Norway",
+                            **{"checkout-url": "", "launch-offer": "1"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        index = (launch / "index.html").read_text()
+        for part in ('data-max-cents="499"', 'min="0" max="499" step="1"', 'value="4.99"', "any price from US$0 to US$4.99",
+                     'data-price-pick="0"', 'data-price-pick="100"', 'data-price-pick="300"', 'data-price-pick="499"'):
+            self.assertIn(part, index)
+        self.assertIn("Checkout isn’t open yet", index, "no checkout address: the page says so")
+        self.assertNotIn("action=", index, "nothing is sent anywhere without a checkout address")
+        self.assertNotIn("Buy", index, "the launch offer replaces the buy button")
+        self.assertIn("isn’t the trial", (ROOT / "website/site.js").read_text())
+        self.assertIn("The trial is not the same as a US$0 launch license", index)
+        terms = (launch / "terms/index.html").read_text()
+        self.assertIn("from US$0 to US$4.99", terms)
+        self.assertIn("License sales are not open yet", terms)
+        self.assertIn("License sales are not open yet", (launch / "privacy/index.html").read_text())
+        self.assert_links_resolve(launch)
+
+    def test_launch_checkout_address_receives_the_chosen_price(self):
+        launch = Path(self.temp.name) / "launch"
+        result = build_site(launch, self.dist / "install.sh", self.dist,
+                            **{"launch-offer": "1", "launch-checkout-url": "https://pay.example.com/droplet"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        index = (launch / "index.html").read_text()
+        self.assertIn('action="https://pay.example.com/droplet" method="get"', index)
+        self.assertIn('name="price"', index)
+        self.assertNotIn("Checkout isn’t open yet", index)
+        self.assertNotIn('href="https://test.lemonsqueezy.com/buy/abc"', index, "the price chooser is the way to buy")
+        self.assertIn("14 days", index)
+        self.assertIn("Purchases are handled by", (launch / "privacy/index.html").read_text())
+
+    def test_launch_offer_settings_are_checked(self):
+        for values, message in [({"launch-offer": "1", "price": ""}, "DROPLET_PRICE"),
+                                ({"launch-offer": "1", "price": "4.99 dollars"}, "DROPLET_PRICE"),
+                                ({"launch-offer": "1", "price": "US$0"}, "DROPLET_PRICE"),
+                                ({"launch-offer": "1", "launch-checkout-url": "http://pay.example.com/x"}, "launch checkout"),
+                                ({"launch-offer": "1", "launch-checkout-url": "https://pay.example.com/x?a=1"}, "launch checkout"),
+                                ({"launch-offer": "yes"}, "launch-offer")]:
+            with self.subTest(values=values):
+                result = build_site(Path(self.temp.name) / "bad", self.dist / "install.sh", self.dist, **values)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+
+    def test_preview_is_marked_and_needs_no_downloads(self):
+        preview = Path(self.temp.name) / "preview"
+        common = ["python3", str(BUILD_SITE), "--output", str(preview), "--version", "1.0.0",
+                  "--notices", str(self.dist / "notices"), "--owner", "Whoamiii", "--country", "Norway",
+                  "--support", "quentin@whoamiii.art", "--price", "US$4.99", "--launch-offer", "1"]
+        refused = subprocess.run(common, capture_output=True, text=True, timeout=60)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("--preview", refused.stderr, "only a preview may leave out the downloads")
+        partial = subprocess.run(common + ["--preview", "--download-url", SITE_URL], capture_output=True, text=True, timeout=60)
+        self.assertNotEqual(partial.returncode, 0)
+        self.assertIn("--files-url", partial.stderr)
+        result = subprocess.run(common + ["--preview"], capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for page in preview.rglob("*.html"):
+            text = page.read_text()
+            self.assertIn('<meta name="robots" content="noindex, nofollow">', text, page)
+            self.assertIn("Local design preview", text, page)
+            self.assertIn("Whoamiii, Norway", text, page)
+            self.assertNotIn("{{", text, page)
+        index = (preview / "index.html").read_text()
+        self.assertIn("Available at launch", index)
+        self.assertNotIn("curl -fsSL https://", index)
+        self.assertNotIn('rel="canonical"', index)
+        self.assertFalse((preview / "install.sh").exists())
+        self.assert_links_resolve(preview)
+        self.assertNotIn("Local design preview", self.page(), "release builds are not previews")
+        self.assertNotIn("noindex", self.page())
+
+    def test_license_texts_get_readable_names_and_hidden_files_are_skipped(self):
+        (self.dist / "notices" / "._ffmpeg-LICENSE.txt").write_text("macOS metadata")
+        notices = Path(self.temp.name) / "notices-site"
+        result = build_site(notices, self.dist / "install.sh", self.dist)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        page = (notices / "licenses/index.html").read_text()
+        self.assertIn(">FFmpeg license</a>", page)
+        self.assertIn('href="SOURCES.txt"', page)
+        self.assertNotIn("._ffmpeg", page)
+        self.assertFalse((notices / "licenses/._ffmpeg-LICENSE.txt").exists())
+
+    @unittest.skipUnless(shutil.which("node"), "needs Node.js")
+    def test_price_chooser_reads_cents_from_zero_to_the_limit(self):
+        cases = {"0": [True, 0], "0.00": [True, 0], "0.01": [True, 1], "4.99": [True, 499], "4.98": [True, 498],
+                 "2,5": [True, 250], "US$1.05": [True, 105], "$3": [True, 300], ".5": [True, 50], "4.": [True, 400],
+                 "0004.99": [True, 499], "4.991": [False, "cents"], "5": [False, "high"], "5.00": [False, "high"],
+                 "499": [False, "high"], "-1": [False, "negative"], "": [False, "empty"], "  ": [False, "empty"],
+                 "abc": [False, "format"], "1.2.3": [False, "format"], ".": [False, "format"]}
+        script = ("const site = require(process.argv[1]); const out = {};"
+                  "for (const raw of JSON.parse(process.argv[2])) { const r = site.parsePrice(raw, 499);"
+                  " out[raw] = [r.ok, r.ok ? r.cents : r.reason]; }"
+                  "out.format = [0, 5, 300, 499].map(site.formatPrice).concat([0, 5, 499].map(site.inputValue));"
+                  "console.log(JSON.stringify(out));")
+        result = subprocess.run(["node", "-e", script, str(ROOT / "website/site.js"), json.dumps(list(cases))],
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        parsed = json.loads(result.stdout)
+        for raw, expected in cases.items():
+            with self.subTest(price=raw):
+                self.assertEqual(parsed[raw], expected)
+        self.assertEqual(parsed["format"], ["US$0", "US$0.05", "US$3", "US$4.99", "0.00", "0.05", "4.99"])
 
 
 # Stand-ins for GitHub's command-line tool and curl. QA_STATE holds what

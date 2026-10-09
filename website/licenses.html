@@ -1,17 +1,39 @@
-<section class="legal">
-<h1>Third-party licenses</h1>
-<p>Droplet {{version}} includes these separate programs, unmodified, each under its own license:</p>
-<ul>
-  <li><strong>yt-dlp</strong>: the download engine (standalone macOS build, GNU GPL v3 or later as a whole).</li>
-  <li><strong>FFmpeg</strong>: combines video and sound without re-encoding (GNU GPL build).</li>
-  <li><strong>Deno</strong>: the JavaScript runtime yt-dlp uses for YouTube (MIT License).</li>
-</ul>
-<p>The same texts are inside the app: Droplet's settings &rarr; Third-party licenses.</p>
-<ul>
+<article class="doc wrap">
+  <header class="doc-head">
+    <h1>Third-party licenses</h1>
+    <p class="doc-lead">Droplet {{version}} includes these separate programs, unmodified, each under its own license. The same texts are inside the app: Droplet’s settings → Third-party licenses.</p>
+  </header>
+  <div class="doc-layout">
+    <nav class="doc-toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ol>
+        <li><a href="#programs">Included programs</a></li>
+        <li><a href="#texts">License texts</a></li>
+        <li><a href="#source">Source code</a></li>
+      </ol>
+    </nav>
+    <div class="doc-text">
+      <section id="programs" aria-labelledby="programs-title">
+        <h2 id="programs-title">Included programs</h2>
+        <ul class="component-list">
+          <li><b>yt-dlp</b><span>The download engine. The standalone macOS build, under the GNU GPL v3 or later as a whole.</span></li>
+          <li><b>FFmpeg</b><span>Combines video and sound without re-encoding. A GNU GPL build.</span></li>
+          <li><b>Deno</b><span>The JavaScript runtime yt-dlp uses for YouTube. MIT License.</span></li>
+        </ul>
+      </section>
+
+      <section id="texts" aria-labelledby="texts-title">
+        <h2 id="texts-title">License texts</h2>
+        <ul class="file-list">
 {{license_links}}
-</ul>
-<p>To get the source code, use the links in <a href="SOURCES.txt">SOURCES.txt</a>, or write to
-<a href="{{support_href}}">{{support_text}}</a> and we will send you a copy (for at least three years after you
-received Droplet).</p>
-<p class="small">Droplet is not affiliated with or endorsed by the yt-dlp, FFmpeg or Deno projects.</p>
-</section>
+        </ul>
+      </section>
+
+      <section id="source" aria-labelledby="source-title">
+        <h2 id="source-title">Source code</h2>
+        <p>To get the source code, <!-- if has_sources -->use the links in <a href="SOURCES.txt">SOURCES.txt</a>, or <!-- end has_sources -->write to <a href="{{support_href}}">{{support_text}}</a> and we will send you a copy (for at least three years after you received Droplet).</p>
+        <p>Droplet is not affiliated with or endorsed by the yt-dlp, FFmpeg or Deno projects.</p>
+      </section>
+    </div>
+  </div>
+</article>

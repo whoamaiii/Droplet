@@ -21,3 +21,6 @@ __pycache__/
 # Release secrets and outputs
 release.env
 dist/
+
+# Local website preview (scripts/preview_site.py)
+website-preview/

@@ -86,3 +86,8 @@ WHO-226 isolates the engine environment, validates all URL entry points, classif
   repository to its address), then it checks the live install.sh and the zip's
   fingerprint. It refuses a stale `dist/` or, unless `--trial-only`, a build
   without a store. `scripts/first-release.sh` drives all of it.
+  `scripts/preview_site.py` builds the same templates as a marked, unindexed
+  local preview (no download or checkout address) into `website-preview/` and
+  serves it on 127.0.0.1 only. The launch offer's price chooser
+  (`website/site.js`) works in whole cents and only hands the chosen price to
+  `DROPLET_LAUNCH_CHECKOUT_URL`; that service must check it again.
