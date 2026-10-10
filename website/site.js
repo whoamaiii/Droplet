@@ -451,6 +451,23 @@
 
   var finePointer = window.matchMedia ? window.matchMedia("(hover: hover) and (pointer: fine)") : null;
   function canHover() { return !!(finePointer && finePointer.matches); }
+  // Looping motion stops for reduced motion and when the visitor pauses it.
+  var PAUSE_KEY = "droplet-motion-paused";
+  var motionHandlers = [];
+  function paused() { return document.documentElement.classList.contains("motion-paused"); }
+  function still() { return reduced() || paused(); }
+  function onMotion(handler) {
+    motionHandlers.push(handler);
+    onChange(motion, handler);
+  }
+  function setPaused(on) {
+    document.documentElement.classList.toggle("motion-paused", on);
+    try {
+      if (on) localStorage.setItem(PAUSE_KEY, "1");
+      else localStorage.removeItem(PAUSE_KEY);
+    } catch (error) { /* not remembered, but still paused for now */ }
+    motionHandlers.forEach(function (handler) { handler(); });
+  }
   function onChange(query, handler) {
     if (!query) return;
     if (query.addEventListener) query.addEventListener("change", handler);
@@ -510,7 +527,11 @@
   // thin bright crossings read as light through water, in the drop's colours.
   var WATER_VERTEX = "attribute vec2 p;void main(){gl_Position=vec4(p,0.0,1.0);}";
   var WATER_FRAGMENT = [
+    "#ifdef GL_FRAGMENT_PRECISION_HIGH",
+    "precision highp float;",
+    "#else",
     "precision mediump float;",
+    "#endif",
     "uniform vec2 uRes;",
     "uniform float uTime;",
     "uniform vec3 uPointer;",
@@ -538,6 +559,11 @@
     "  gl_FragColor = vec4(col * a, a);",
     "}"
   ].join("\n");
+
+  // Every wave in the shader runs at a multiple of 0.025 radians a second, so
+  // the whole pattern repeats after 80π: the clock wraps there without a jump
+  // and stays small enough for phones' lower-precision graphics chips.
+  var WATER_LOOP = 80 * Math.PI;
 
   function initWater(backdrop) {
     var canvas = document.createElement("canvas");
@@ -610,14 +636,14 @@
       if (!state.running) return;
       state.frame = requestAnimationFrame(loop);
       if (now - state.last < 33) return; // about 30 frames a second is plenty
-      state.clock += Math.min(now - state.last, 100) / 1000 * 0.32;
+      state.clock = (state.clock + Math.min(now - state.last, 100) / 1000 * 0.32) % WATER_LOOP;
       state.last = now;
       draw();
     }
     // Runs only while the hero is on screen, the tab is visible and motion is
     // welcome; otherwise it holds one still frame.
     function update() {
-      var go = state.visible && !document.hidden && !reduced() && !state.lost;
+      var go = state.visible && !document.hidden && !still() && !state.lost;
       if (go && !state.running) {
         state.running = true;
         state.last = performance.now();
@@ -643,7 +669,7 @@
     }
     whenVisible(backdrop, function () { state.visible = true; update(); }, function () { state.visible = false; update(); });
     document.addEventListener("visibilitychange", update);
-    onChange(motion, update);
+    onMotion(update);
     onChange(dark, function () { if (!state.running) draw(); });
     update();
     return {
@@ -713,6 +739,7 @@
     var index = 0;
     var timer = null;
     var held = false;
+    var visible = false;
     function set(i) {
       index = i;
       scene.setAttribute("data-active", items[i].getAttribute("data-state"));
@@ -724,7 +751,7 @@
       timer = null;
     }
     function play() {
-      if (timer || held || reduced()) return;
+      if (timer || held || !visible || still()) return;
       set(index);
       timer = setInterval(function () { set((index + 1) % items.length); }, 1800);
     }
@@ -739,8 +766,41 @@
         play();
       });
     });
-    whenVisible(scene, play, stop, { threshold: 0.4 });
-    onChange(motion, function () { if (reduced()) stop(); });
+    whenVisible(scene, function () {
+      visible = true;
+      play();
+    }, function () {
+      visible = false;
+      stop();
+    }, { threshold: 0.4 });
+    onMotion(function () {
+      if (still()) stop();
+      else play();
+    });
+  }
+
+  // Looping animations rest while their part of the page is off screen.
+  function initOffscreen(element) {
+    whenVisible(element, function () { element.classList.remove("is-offscreen"); },
+      function () { element.classList.add("is-offscreen"); });
+  }
+
+  // "Pause animations": stops the page's looping motion (the water, the glows,
+  // the headline's drifting colour, the price drop's waves and the cycling
+  // menu-bar states). The choice is remembered on this device.
+  function initMotionToggle(button) {
+    var label = one(button, "[data-motion-label]");
+    function render() {
+      var on = paused();
+      if (label) label.textContent = on ? "Play animations" : "Pause animations";
+      button.classList.toggle("is-paused", on);
+    }
+    button.hidden = false;
+    render();
+    button.addEventListener("click", function () {
+      setPaused(!paused());
+      render();
+    });
   }
 
   // The header's links follow the section in view, with a sliding pill.
@@ -876,7 +936,18 @@
   /* ------------------------------------------------------------ start */
 
   function start() {
-    document.documentElement.classList.add("js");
+    var root = document.documentElement;
+    root.classList.add("js");
+    try {
+      if (localStorage.getItem(PAUSE_KEY)) root.classList.add("motion-paused");
+    } catch (error) { /* storage blocked: motion simply plays */ }
+    // The falling-drop intro plays once per visit, not on every page load.
+    if (document.querySelector(".intro")) {
+      try {
+        if (sessionStorage.getItem("droplet-intro")) root.classList.add("intro-done");
+        else sessionStorage.setItem("droplet-intro", "1");
+      } catch (error) { /* storage blocked: the intro plays */ }
+    }
     all(document, "[data-copy]").forEach(initCopy);
     all(document, "[data-demo]").forEach(initDemo);
     all(document, "[data-price-form]").forEach(initPrice);
@@ -887,6 +958,8 @@
     all(document, ".site-nav").forEach(initNavSpy);
     all(document, "details").forEach(initAccordion);
     all(document, "[data-flow]").forEach(initFlowStory);
+    all(document, ".hero, .offer-drop").forEach(initOffscreen);
+    all(document, "[data-motion-toggle]").forEach(initMotionToggle);
     all(document, ".hero-actions .btn, .header-row .btn, [data-price-submit]:not([aria-disabled])").forEach(initMagnetic);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
