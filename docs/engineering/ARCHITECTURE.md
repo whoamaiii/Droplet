@@ -90,4 +90,7 @@ WHO-226 isolates the engine environment, validates all URL entry points, classif
   local preview (no download or checkout address) into `website-preview/` and
   serves it on 127.0.0.1 only. The launch offer's price chooser
   (`website/site.js`) works in whole cents and only hands the chosen price to
-  `DROPLET_LAUNCH_CHECKOUT_URL`; that service must check it again.
+  `DROPLET_LAUNCH_CHECKOUT_URL`; that service must check it again. `site.js`
+  also runs the page's effects (a WebGL water shader behind the hero, the pinned
+  how-it-works story, a "Pause animations" control remembered on the device);
+  every effect stops for reduced motion and the content never depends on them.

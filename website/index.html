@@ -1,4 +1,5 @@
 <section class="hero wrap" aria-labelledby="hero-title">
+  <div class="backdrop" aria-hidden="true" data-backdrop><div class="aurora"><i></i><i></i><i></i></div></div>
   <div class="hero-copy">
     <!-- if launch_offer -->
     <p class="offer-pill"><span class="offer-pill-tag">Launch offer</span><span>A full license for <strong>any price from US$0 to {{price}}</strong></span></p>
@@ -11,10 +12,18 @@
       <!-- if regular_checkout --><a class="btn btn-quiet" href="{{checkout_url}}">{{buy_label}}</a><!-- end regular_checkout -->
       <!-- if regular_no_checkout --><a class="btn btn-quiet" href="#how">See how it works</a><!-- end regular_no_checkout -->
     </div>
+    <ul class="spec-strip" aria-label="At a glance">
+      <li><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-film"/></svg>MP4 (H.264 + AAC)</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-user-off"/></svg>No account</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-circle-check"/></svg>3 videos free</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-laptop"/></svg>macOS 14 or later</li>
+    </ul>
+    <button class="motion-toggle" type="button" data-motion-toggle hidden><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-pause"/></svg><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-play"/></svg><span data-motion-label>Pause animations</span></button>
   </div>
 
   <figure class="stage" data-demo data-icon="idle">
     <div class="screen" data-demo-screen>
+      <div class="intro" aria-hidden="true"><svg class="intro-drop" viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="url(#g-drop)"/><ellipse cx="30" cy="82" rx="9" ry="15" fill="#fff" opacity=".5" filter="url(#f-soft)"/></svg><i></i><i></i><i></i></div>
       <div class="menubar">
         <div class="mb-menus" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         <div class="mb-status" aria-hidden="true"><i></i><i></i></div>
@@ -26,7 +35,7 @@
         </button>
       </div>
 
-      <div class="popover is-opening" id="demo-popover" role="group" aria-label="Droplet window (demo)" data-demo-popover>
+      <div class="popover is-opening is-first" id="demo-popover" role="group" aria-label="Droplet window (demo)" data-demo-popover>
         <div class="pop-head" aria-hidden="true">
           <span class="pop-ring"></span><span class="pop-ring"></span>
           <svg class="pop-drop" viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="url(#g-drop)"/><ellipse cx="27" cy="84" rx="10" ry="17" fill="#fff" opacity=".5" filter="url(#f-soft)"/></svg>
@@ -35,6 +44,7 @@
         <p class="pop-sub">Clipboard → MP4 in Downloads</p>
         <div class="pop-body">
           <div class="pop-view" data-view="idle">
+            <span class="pop-paste" aria-hidden="true"><kbd>⌘</kbd><kbd>C</kbd></span>
             <div class="pop-link"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-link"/></svg><div><b>www.youtube.com</b><small>/watch</small></div></div>
             <button class="pop-trial" type="button" data-demo-trial>3 of 3 free downloads left</button>
             <button class="pop-download" type="button" data-demo-start><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-download"/></svg><span data-demo-start-label>Download</span></button>
@@ -67,7 +77,7 @@
         </div>
       </div>
     </div>
-    <figcaption class="stage-note" data-demo-note>An interactive illustration of Droplet’s menu-bar window, not a screenshot. Press Download to try it.</figcaption>
+    <figcaption class="stage-note" data-demo-note></figcaption>
     <p class="visually-hidden" aria-live="polite" data-demo-live></p>
   </figure>
 </section>
@@ -75,9 +85,11 @@
 <section id="how" class="section section-tint" aria-labelledby="how-title">
   <div class="wrap">
     <div class="section-head reveal">
+      <p class="eyebrow">How it works</p>
       <h2 id="how-title">From link to MP4 in three steps</h2>
       <p class="section-lead">Droplet works from the menu bar at the top of your screen, so there is no app window to find first.</p>
     </div>
+    <div class="flow-wrap" data-flow>
     <ol class="flow">
       <li class="flow-step reveal">
         <div class="flow-visual" aria-hidden="true">
@@ -105,12 +117,37 @@
         <p>The video lands in your Downloads folder. Close the window any time: the download keeps going.</p>
       </li>
     </ol>
+    <div class="flow-stage" aria-hidden="true">
+      <div class="fs-screen">
+        <div class="fs-bar"><i></i><i></i><i></i><span class="fs-drop"><svg class="fs-i-idle" viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="currentColor"/></svg><svg class="fs-i-busy" viewBox="0 0 24 24" focusable="false"><use href="#i-drop-circle" fill="currentColor"/></svg><svg class="fs-i-done" viewBox="0 0 24 24" focusable="false"><use href="#i-check-circle"/></svg></span></div>
+        <div class="fs-browser">
+          <div class="fs-tabbar"><i></i><i></i><i></i></div>
+          <div class="fs-address"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-link"/></svg><span class="fs-url">www.youtube.com/watch</span></div>
+          <div class="fs-video"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-film"/></svg></div>
+          <div class="fs-lines"><i></i><i></i></div>
+        </div>
+        <div class="fs-keys"><kbd>⌘</kbd><kbd>C</kbd></div>
+        <div class="fs-chip"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-link"/></svg>www.youtube.com/watch</div>
+        <div class="fs-pop">
+          <svg class="fs-pop-drop" viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="url(#g-drop)"/></svg>
+          <b class="fs-pop-title">Droplet</b>
+          <div class="fs-pop-link"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-link"/></svg>www.youtube.com/watch</div>
+          <div class="fs-pop-action"><span class="fs-pop-btn"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-download"/></svg>Download</span><span class="fs-pop-progress"><i></i></span></div>
+          <div class="fs-pop-done"><span class="pop-check"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-check"/></svg></span><b>Video saved</b><small>Downloads</small></div>
+        </div>
+        <span class="fs-click"></span>
+        <svg class="fs-cursor" viewBox="0 0 24 24" focusable="false"><use href="#i-cursor"/></svg>
+        <div class="fs-file"><svg viewBox="0 0 24 24" focusable="false"><use href="#i-folder"/></svg><span><b>Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film.mp4</b><small>Downloads</small></span></div>
+      </div>
+    </div>
+    </div>
   </div>
 </section>
 
 <section class="section" aria-labelledby="features-title">
   <div class="wrap">
     <div class="section-head reveal">
+      <p class="eyebrow">Features</p>
       <h2 id="features-title">Made to stay out of your way</h2>
     </div>
     <div class="bento">
@@ -119,12 +156,12 @@
           <h3>Lives in your menu bar</h3>
           <p>No Dock icon and no window to manage. The drop changes while a video downloads, so you can close Droplet’s window and keep working.</p>
         </div>
-        <div class="menubar-scene">
-          <div class="scene-bar" aria-hidden="true"><i></i><i></i><span class="scene-drop"><svg viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="currentColor"/></svg></span></div>
+        <div class="menubar-scene" data-states>
+          <div class="scene-bar" aria-hidden="true"><i></i><i></i><span class="scene-drop"><svg class="s-idle" viewBox="0 0 100 125" focusable="false"><use href="#i-drop" fill="currentColor"/></svg><svg class="s-busy" viewBox="0 0 24 24" focusable="false"><use href="#i-drop-circle" fill="currentColor"/></svg><svg class="s-done" viewBox="0 0 24 24" focusable="false"><use href="#i-check-circle"/></svg></span></div>
           <ul class="states" aria-label="What the menu-bar icon shows">
-            <li class="state"><span class="state-icon"><svg class="i-drop-small" viewBox="0 0 100 125" aria-hidden="true" focusable="false"><use href="#i-drop" fill="currentColor"/></svg></span>Ready</li>
-            <li class="state state-busy"><span class="state-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-drop-circle" fill="currentColor"/></svg></span>Downloading</li>
-            <li class="state state-done"><span class="state-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-check-circle"/></svg></span>Saved</li>
+            <li class="state" data-state="idle"><span class="state-icon"><svg class="i-drop-small" viewBox="0 0 100 125" aria-hidden="true" focusable="false"><use href="#i-drop" fill="currentColor"/></svg></span>Ready</li>
+            <li class="state state-busy" data-state="busy"><span class="state-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-drop-circle" fill="currentColor"/></svg></span>Downloading</li>
+            <li class="state state-done" data-state="done"><span class="state-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-check-circle"/></svg></span>Saved</li>
           </ul>
         </div>
       </article>
@@ -156,12 +193,14 @@
   <div class="wrap">
     <!-- if launch_offer -->
     <div class="section-head reveal">
+      <p class="eyebrow">Pricing</p>
       <h2 id="price-title">Launch offer: name your price</h2>
       <p class="section-lead">Every price from US$0 to {{price}} gets the same full license with unlimited downloads. Prefer to try first? Your first three saved videos are free.</p>
     </div>
     <!-- end launch_offer -->
     <!-- if no_launch_offer -->
     <div class="section-head reveal">
+      <p class="eyebrow">Pricing</p>
       <h2 id="price-title">One price, paid once</h2>
       <p class="section-lead">Try Droplet free for three saved videos. A license unlocks unlimited downloads, with no subscription.</p>
     </div>
@@ -196,7 +235,9 @@
               <path class="drop-glass" d="M50 0Q6 32.5 0 75C0 102.6 22.4 125 50 125S100 102.6 100 75Q94 32.5 50 0Z"/>
               <g clip-path="url(#meter-clip)">
                 <g class="drop-water" data-price-water>
+                  <path class="drop-wave drop-wave-back" d="M-150 2Q-137.5 -3-125 2T-100 2-75 2-50 2-25 2 0 2 25 2 50 2 75 2 100 2 125 2 150 2 175 2 200 2 225 2 250 2V150H-150Z" fill="#1c4fc4" opacity=".55"/>
                   <path class="drop-wave" d="M-150 5Q-137.5 0-125 5T-100 5-75 5-50 5-25 5 0 5 25 5 50 5 75 5 100 5 125 5 150 5 175 5 200 5 225 5 250 5V150H-150Z" fill="url(#meter-water)"/>
+                  <circle class="bubble" cx="34" cy="118" r="2.4"/><circle class="bubble" cx="58" cy="122" r="1.6"/><circle class="bubble" cx="70" cy="116" r="2"/>
                 </g>
               </g>
               <ellipse class="drop-shine" cx="27" cy="84" rx="9" ry="15" filter="url(#f-soft)"/>
@@ -260,6 +301,7 @@
   <div class="wrap install-grid">
     <div class="install-intro reveal">
       <img class="app-icon" src="icon.png" width="104" height="104" alt="Droplet’s app icon" loading="lazy" decoding="async">
+      <p class="eyebrow">Install</p>
       <h2 id="install-title">Install in one line</h2>
       <p>Droplet installs from Terminal, the way many Mac tools do. The same line updates it later.</p>
       <dl class="requirements">
@@ -274,7 +316,7 @@
         <li>
           <h3>Paste this line and press Return</h3>
           <!-- if has_download -->
-          <div class="command"><code id="install-command">{{install_command}}</code><button class="copy-btn" type="button" data-copy="install-command" aria-describedby="copy-status">Copy</button></div>
+          <div class="command"><code id="install-command">{{install_command}}</code><button class="copy-btn" type="button" data-copy="install-command" aria-describedby="copy-status"><svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-copy"/></svg><svg class="copy-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-check"/></svg><span data-copy-label>Copy</span></button></div>
           <p class="copy-status" id="copy-status" aria-live="polite" data-copy-status="install-command"></p>
           <!-- end has_download -->
           <!-- if no_download -->
@@ -305,6 +347,7 @@
 <section id="faq" class="section" aria-labelledby="faq-title">
   <div class="wrap faq-grid">
     <div class="faq-aside reveal" id="support">
+      <p class="eyebrow">Help</p>
       <h2 id="faq-title">Questions</h2>
       <p>Straight answers about sites, the free trial, installing and privacy.</p>
       <div class="support-card">

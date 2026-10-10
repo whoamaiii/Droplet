@@ -24,13 +24,39 @@ pushed, published or deployed, and no domain, store or checkout was touched.
 ## What the site contains
 
 Home page: hero with the launch offer, "Try it free" and "Choose your price"; an
-interactive, clearly labelled illustration of the menu-bar window (real layout,
+interactive illustration of the menu-bar window, marked as a demo for screen readers (real layout,
 texts, stages, icon changes and trial counter; cancel never uses a free download);
 how it works; features; pricing (price chooser plus a separate free-trial panel);
 install; FAQ with support; responsible-use note. Privacy, terms and third-party
 licenses pages share a readable document layout. Light and dark mode follow macOS.
-No web fonts, trackers or external requests: about 25 KB compressed (HTML, CSS, JS),
+No web fonts, trackers or external requests: about 38 KB compressed (HTML, CSS, JS),
 plus the 125 KB app icon, which loads lazily.
+
+## Motion and effects (second pass, 10 October 2026)
+
+All in `website/index.html`, `layout.html`, `style.css` and `site.js`:
+
+- Behind the hero: drifting colour glows, a WebGL "water light" shader, a pointer
+  spotlight, a vignette and a faint film grain. The shader runs at about 30 frames a
+  second at half resolution, stops when the hero is off screen or the tab is hidden,
+  uses high precision where available and wraps its clock where the pattern repeats
+  (so it stays smooth on phones). Without WebGL the glows remain.
+- Hero intro: the headline sharpens line by line, a drop falls on the demo screen and
+  its ripples spread before the window opens. It plays once per visit (per tab).
+- Demo window: glass glint, a ⌘C paste moment, smooth progress, a ring burst and drawn
+  check when saved. "How it works" becomes a pinned, scroll-driven story on wide
+  screens (1024 px and up, with motion allowed); other screens keep the cards.
+- Small touches: the price drop's waves and bubbles, a drop-shaped slider thumb,
+  smooth FAQ accordions, a header that turns to glass with a reading-progress line
+  and a pill for the section in view, pointer-lit feature tiles.
+- Fallbacks: with Reduce Motion the page is still and complete; a **Pause animations**
+  button under the hero stops all looping motion and is remembered on the device;
+  looping animations also rest while off screen. Without JavaScript all content
+  shows. Forced colours (high contrast) and print hide the decorative layers.
+- Checked in headless Chromium, WebKit and Firefox: 106/106 interaction checks in each,
+  71 (Chromium), 67 (WebKit) and 67 (Firefox) effect checks, the configured build and
+  a link crawl; a steady 60 frames a second at 1440×900 on Apple silicon. Not checked:
+  a real iPhone or Android phone and older Intel Macs.
 
 ## Changed files
 
